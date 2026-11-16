@@ -6,6 +6,7 @@ import type { FormatoInforme } from '../../shared/informes.ts'
 import { leerSolicitudInstitucional, redactarInstitucional, TIPOS_INSTITUCIONALES } from '../../shared/institucional.ts'
 import { permisoDeOperacion, puede } from '../../shared/permisos.ts'
 import { cambiarClave, cerrar, entrar, leerDatos, operar, sesionDe } from './almacen.ts'
+import { usaTidb } from './tidb.ts'
 import { construirControlExcel } from './control-excel.ts'
 import { exportarDocumento, exportarInforme, leerLogo, nombreArchivo, tipoContenido } from './documentos.ts'
 import { construirExcel } from './excel.ts'
@@ -27,48 +28,53 @@ app.get('/api/health', (_req, res) => {
   res.json({
     ok: true,
     servicio: 'LAB CONTROL API',
-    fuente: 'sqlite',
+    fuente: usaTidb() ? 'tidb' : 'sqlite',
     persistido: true,
   })
 })
 
-app.post('/api/sesion/entrar', (req, res) => {
-  const correo = typeof req.body?.correo === 'string' ? req.body.correo : ''
-  const clave = typeof req.body?.clave === 'string' ? req.body.clave : ''
-  const resultado = entrar(correo, clave)
-  if (!resultado.ok) {
-    res.status(401).json(resultado)
-    return
+app.post('/api/sesion/entrar', async (req, res) => {
+  try {
+    const correo = typeof req.body?.correo === 'string' ? req.body.correo : ''
+    const clave = typeof req.body?.clave === 'string' ? req.body.clave : ''
+    const resultado = await entrar(correo, clave)
+    if (!resultado.ok) {
+      res.status(401).json(resultado)
+      return
+    }
+    res.json(resultado)
+  } catch (error) {
+    console.error(error)
+    res.status(503).json({ ok: false, message: 'No hay conexión con la base de datos.' })
   }
-  res.json(resultado)
 })
 
-app.post('/api/sesion/cerrar', (req, res) => {
-  const sesion = exigir(req, res, '')
+app.post('/api/sesion/cerrar', async (req, res) => {
+  const sesion = await exigir(req, res, '')
   if (!sesion) return
-  cerrar(sesion.token)
+  await cerrar(sesion.token)
   res.json({ ok: true })
 })
 
-app.post('/api/sesion/clave', (req, res) => {
-  const sesion = exigir(req, res, '')
+app.post('/api/sesion/clave', async (req, res) => {
+  const sesion = await exigir(req, res, '')
   if (!sesion) return
   const nueva = typeof req.body?.nueva === 'string' ? req.body.nueva : ''
   const actual = typeof req.body?.actual === 'string' ? req.body.actual : ''
-  const resultado = cambiarClave(sesion.usuario.id, nueva, actual)
+  const resultado = await cambiarClave(sesion.usuario.id, nueva, actual)
   res.status(resultado.ok ? 200 : 400).json(resultado)
 })
 
-app.get('/api/bootstrap', (req, res) => {
-  const sesion = exigir(req, res, '')
+app.get('/api/bootstrap', async (req, res) => {
+  const sesion = await exigir(req, res, '')
   if (!sesion) return
-  res.json({ data: leerDatos(), usuario: sesion.usuario, debeCambiar: sesion.debeCambiar })
+  res.json({ data: await leerDatos(), usuario: sesion.usuario, debeCambiar: sesion.debeCambiar })
 })
 
-app.post('/api/operacion', (req, res) => {
+app.post('/api/operacion', async (req, res) => {
   const tipo = typeof req.body?.tipo === 'string' ? req.body.tipo : ''
   const permiso = permisoDeOperacion(tipo)
-  const sesion = exigir(req, res, permiso && tipo !== 'usuario' ? permiso : '')
+  const sesion = await exigir(req, res, permiso && tipo !== 'usuario' ? permiso : '')
   if (!sesion) return
   if (permiso && tipo !== 'usuario' && !puede(sesion.rol, permiso)) {
     res.status(403).json({ ok: false, message: 'No tienes permiso para esta acción.' })
@@ -82,7 +88,7 @@ app.post('/api/operacion', (req, res) => {
   const ids = Array.isArray(req.body?.ids) ? req.body.ids.filter((item: unknown) => typeof item === 'string') : []
   const accion = typeof req.body?.accion === 'string' ? req.body.accion : tipo
   try {
-    const resultado = operar(sesion, tipo, datos, ids, accion)
+    const resultado = await operar(sesion, tipo, datos, ids, accion)
     if (!resultado.ok) {
       res.status(resultado.status).json(resultado.revision ?? { ok: false, message: resultado.message, errors: [{ field: 'form', message: resultado.message }] })
       return
@@ -94,15 +100,15 @@ app.post('/api/operacion', (req, res) => {
   }
 })
 
-app.post('/api/informes/institucional', (req, res) => {
+app.post('/api/informes/institucional', async (req, res) => {
   try {
-    if (!exigir(req, res, 'reportes')) return
+    if (!(await exigir(req, res, 'reportes'))) return
     const solicitud = leerSolicitudInstitucional(req.body?.institucional)
     if (!solicitud) {
       res.status(400).json({ ok: false, persistido: true, message: 'Elige el tipo de informe.' })
       return
     }
-    const demo = leerDatos()
+    const demo = await leerDatos()
     const titulo = TIPOS_INSTITUCIONALES.find((item) => item.id === solicitud.tipo)?.nombre ?? 'Informe de laboratorio'
     const documento = redactarInstitucional(
       hechosLaboratorio(demo, leerFiltros(req.body?.filtros, demo.meta.escenarioFecha)),
@@ -116,10 +122,10 @@ app.post('/api/informes/institucional', (req, res) => {
   }
 })
 
-app.post('/api/informes/vista', (req, res) => {
+app.post('/api/informes/vista', async (req, res) => {
   try {
-    if (!exigir(req, res, 'reportes')) return
-    const demo = leerDatos()
+    if (!(await exigir(req, res, 'reportes'))) return
+    const demo = await leerDatos()
     const id = typeof req.body?.id === 'string' ? req.body.id : ''
     const informe = construirInforme(demo, id, leerFiltros(req.body?.filtros, demo.meta.escenarioFecha))
     res.json(vistaDe(informe))
@@ -131,13 +137,13 @@ app.post('/api/informes/vista', (req, res) => {
 
 app.post('/api/informes/archivo', async (req, res) => {
   try {
-    if (!exigir(req, res, 'reportes')) return
+    if (!(await exigir(req, res, 'reportes'))) return
     const formato = req.body?.formato
     if (!esFormato(formato)) {
       res.status(400).json({ ok: false, persistido: false, message: 'Elige Excel, PDF, Word o CSV.' })
       return
     }
-    const demo = leerDatos()
+    const demo = await leerDatos()
     const solicitud = leerSolicitudInstitucional(req.body?.institucional)
     if (solicitud) {
       const titulo = TIPOS_INSTITUCIONALES.find((item) => item.id === solicitud.tipo)?.nombre ?? 'Informe de laboratorio'
@@ -179,7 +185,7 @@ app.post('/api/informes/archivo', async (req, res) => {
 
 app.post('/api/reportes/excel', async (req, res) => {
   try {
-    if (!exigir(req, res, 'reportes')) return
+    if (!(await exigir(req, res, 'reportes'))) return
     const { buffer, filename } = await construirExcel(req.body)
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`)
@@ -190,10 +196,10 @@ app.post('/api/reportes/excel', async (req, res) => {
   }
 })
 
-function exigir(req: express.Request, res: express.Response, permiso: string) {
+async function exigir(req: express.Request, res: express.Response, permiso: string) {
   const header = req.header('authorization') ?? ''
   const token = header.startsWith('Bearer ') ? header.slice(7) : ''
-  const sesion = sesionDe(token)
+  const sesion = await sesionDe(token)
   if (!sesion) {
     res.status(401).json({ ok: false, message: 'Inicia sesión de nuevo.' })
     return null
@@ -209,7 +215,11 @@ function esFormato(value: unknown): value is FormatoInforme {
   return value === 'xlsx' || value === 'pdf' || value === 'docx' || value === 'csv'
 }
 
-app.listen(port, () => {
-  console.log(`LAB CONTROL API en http://localhost:${port}`)
-  console.log('Fuente: SQLite en backend/data/lab-control.sqlite. Los cambios se conservan al recargar.')
-})
+if (!process.env.VERCEL) {
+  app.listen(port, () => {
+    console.log(`LAB CONTROL API en http://localhost:${port}`)
+    console.log(usaTidb() ? 'Fuente: TiDB. Los cambios se guardan en la base de la nube.' : 'Fuente: SQLite en backend/data/lab-control.sqlite. Los cambios se conservan al recargar.')
+  })
+}
+
+export default app

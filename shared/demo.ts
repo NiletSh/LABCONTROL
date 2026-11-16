@@ -315,6 +315,7 @@ function buildDemo(): DemoData {
     ],
     usuarios: [
       { id: 'usr-andrea', nombre: 'Andrea Solís', correo: 'andrea.solis@institucion.edu.mx', rol: 'administrador', estado: 'activo' },
+      { id: 'usr-sayle', nombre: 'Sayle', correo: 'sayleonnieto8@gmail.com', rol: 'administrador', estado: 'activo' },
       { id: 'usr-hector', nombre: 'Héctor Ramírez', correo: 'hector.ramirez@institucion.edu.mx', rol: 'encargado', estado: 'activo' },
       { id: 'usr-claudia', nombre: 'Claudia Peña', correo: 'claudia.pena@institucion.edu.mx', rol: 'encargado', estado: 'inactivo' },
     ],
