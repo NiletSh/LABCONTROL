@@ -1,12 +1,5 @@
 {
   "rewrites": [
-    { "source": "/api/(.*)", "destination": "/api" },
     { "source": "/((?!api/).*)", "destination": "/index.html" }
-  ],
-  "functions": {
-    "api/index.ts": {
-      "runtime": "nodejs24.x",
-      "maxDuration": 30
-    }
-  }
+  ]
 }
