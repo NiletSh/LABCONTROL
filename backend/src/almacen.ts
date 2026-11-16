@@ -12,25 +12,31 @@ import { borrarAcceso, claveTidb, crearAcceso, guardarClave, guardarTidb, leerTi
 
 const raiz = path.dirname(fileURLToPath(import.meta.url))
 const carpeta = process.env.VERCEL ? '/tmp' : path.resolve(raiz, '../data')
-mkdirSync(carpeta, { recursive: true })
+let base: DatabaseSync | null = null
 
-const db = new DatabaseSync(path.join(carpeta, 'lab-control.sqlite'))
-db.exec(`
-  CREATE TABLE IF NOT EXISTS documento (
-    id INTEGER PRIMARY KEY CHECK (id = 1),
-    json TEXT NOT NULL
-  );
-  CREATE TABLE IF NOT EXISTS clave (
-    usuario_id TEXT PRIMARY KEY,
-    hash TEXT NOT NULL,
-    debe_cambiar INTEGER NOT NULL DEFAULT 0
-  );
-  CREATE TABLE IF NOT EXISTS acceso (
-    token TEXT PRIMARY KEY,
-    usuario_id TEXT NOT NULL,
-    creado TEXT NOT NULL
-  );
-`)
+function sqlite() {
+  if (base) return base
+  mkdirSync(carpeta, { recursive: true })
+  base = new DatabaseSync(path.join(carpeta, 'lab-control.sqlite'))
+  base.exec(`
+    CREATE TABLE IF NOT EXISTS documento (
+      id INTEGER PRIMARY KEY CHECK (id = 1),
+      json TEXT NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS clave (
+      usuario_id TEXT PRIMARY KEY,
+      hash TEXT NOT NULL,
+      debe_cambiar INTEGER NOT NULL DEFAULT 0
+    );
+    CREATE TABLE IF NOT EXISTS acceso (
+      token TEXT PRIMARY KEY,
+      usuario_id TEXT NOT NULL,
+      creado TEXT NOT NULL
+    );
+  `)
+  sembrar()
+  return base
+}
 
 const CLAVES_SEMILLA: Record<string, string> = {
   'usr-andrea': 'Admin2026',
@@ -40,18 +46,16 @@ const CLAVES_SEMILLA: Record<string, string> = {
 }
 
 function sembrar() {
-  const fila = db.prepare('SELECT json FROM documento WHERE id = 1').get() as { json: string } | undefined
+  const fila = sqlite().prepare('SELECT json FROM documento WHERE id = 1').get() as { json: string } | undefined
   if (fila) return
   const demo = getDemo()
-  db.prepare('INSERT INTO documento (id, json) VALUES (1, ?)').run(JSON.stringify(demo))
-  const insertar = db.prepare('INSERT INTO clave (usuario_id, hash, debe_cambiar) VALUES (?, ?, 0)')
+  sqlite().prepare('INSERT INTO documento (id, json) VALUES (1, ?)').run(JSON.stringify(demo))
+  const insertar = sqlite().prepare('INSERT INTO clave (usuario_id, hash, debe_cambiar) VALUES (?, ?, 0)')
   for (const usuario of demo.usuarios) {
     const clave = CLAVES_SEMILLA[usuario.id]
     if (clave) insertar.run(usuario.id, hashClave(clave))
   }
 }
-
-sembrar()
 
 export interface SesionActiva {
   token: string
@@ -61,14 +65,14 @@ export interface SesionActiva {
 }
 
 function leerDocumento() {
-  const fila = db.prepare('SELECT json FROM documento WHERE id = 1').get() as { json: string }
+  const fila = sqlite().prepare('SELECT json FROM documento WHERE id = 1').get() as { json: string }
   const data = JSON.parse(fila.json) as DemoData
   data.meta.persistido = true
   return data
 }
 
 function guardarDocumento(data: DemoData) {
-  db.prepare('UPDATE documento SET json = ? WHERE id = 1').run(JSON.stringify(data))
+  sqlite().prepare('UPDATE documento SET json = ? WHERE id = 1').run(JSON.stringify(data))
 }
 
 async function leer() {
@@ -82,7 +86,7 @@ async function guardar(data: DemoData) {
 
 async function claveDe(usuarioId: string) {
   if (usaTidb()) return claveTidb(usuarioId)
-  return db.prepare('SELECT hash, debe_cambiar FROM clave WHERE usuario_id = ?').get(usuarioId) as { hash: string; debe_cambiar: number } | undefined
+  return sqlite().prepare('SELECT hash, debe_cambiar FROM clave WHERE usuario_id = ?').get(usuarioId) as { hash: string; debe_cambiar: number } | undefined
 }
 
 export async function leerDatos() {
@@ -93,7 +97,7 @@ export async function sesionDe(token: string): Promise<SesionActiva | null> {
   if (!token) return null
   const usuarioId = usaTidb()
     ? await usuarioDeToken(token)
-    : (db.prepare('SELECT usuario_id FROM acceso WHERE token = ?').get(token) as { usuario_id: string } | undefined)?.usuario_id
+    : (sqlite().prepare('SELECT usuario_id FROM acceso WHERE token = ?').get(token) as { usuario_id: string } | undefined)?.usuario_id
   if (!usuarioId) return null
   const data = await leer()
   const usuario = data.usuarios.find((item) => item.id === usuarioId && item.estado === 'activo')
@@ -114,7 +118,7 @@ export async function entrar(correo: string, clave: string) {
   }
   const token = tokenAcceso()
   if (usaTidb()) await crearAcceso(token, usuario.id)
-  else db.prepare('INSERT INTO acceso (token, usuario_id, creado) VALUES (?, ?, ?)').run(token, usuario.id, new Date().toISOString())
+  else sqlite().prepare('INSERT INTO acceso (token, usuario_id, creado) VALUES (?, ?, ?)').run(token, usuario.id, new Date().toISOString())
   await anotar(data, usuario.nombre, 'Inició sesión.')
   return { ok: true as const, token, usuario, debeCambiar: guardada.debe_cambiar === 1, data: await leer() }
 }
@@ -126,7 +130,7 @@ export async function cerrar(token: string) {
     await anotar(data, sesion.usuario.nombre, 'Cerró sesión.')
   }
   if (usaTidb()) await borrarAcceso(token)
-  else db.prepare('DELETE FROM acceso WHERE token = ?').run(token)
+  else sqlite().prepare('DELETE FROM acceso WHERE token = ?').run(token)
 }
 
 export async function cambiarClave(usuarioId: string, nueva: string, actual?: string) {
@@ -138,7 +142,7 @@ export async function cambiarClave(usuarioId: string, nueva: string, actual?: st
   if (nueva.trim().length < 8) return { ok: false as const, message: 'La clave nueva debe tener al menos 8 caracteres.' }
   const hash = hashClave(nueva.trim())
   if (usaTidb()) await guardarClave(usuarioId, hash, 0)
-  else db.prepare('UPDATE clave SET hash = ?, debe_cambiar = 0 WHERE usuario_id = ?').run(hash, usuarioId)
+  else sqlite().prepare('UPDATE clave SET hash = ?, debe_cambiar = 0 WHERE usuario_id = ?').run(hash, usuarioId)
   const data = await leer()
   const usuario = data.usuarios.find((item) => item.id === usuarioId)
   if (usuario) await anotar(data, usuario.nombre, 'Cambió su clave.')
@@ -163,8 +167,8 @@ async function revocar(usuarioId: string, conservarToken?: string) {
     await revocarTidb(usuarioId, conservarToken)
     return
   }
-  if (conservarToken) db.prepare('DELETE FROM acceso WHERE usuario_id = ? AND token != ?').run(usuarioId, conservarToken)
-  else db.prepare('DELETE FROM acceso WHERE usuario_id = ?').run(usuarioId)
+  if (conservarToken) sqlite().prepare('DELETE FROM acceso WHERE usuario_id = ? AND token != ?').run(usuarioId, conservarToken)
+  else sqlite().prepare('DELETE FROM acceso WHERE usuario_id = ?').run(usuarioId)
 }
 
 export async function operar(sesion: SesionActiva, tipo: string, datos: Record<string, unknown>, ids: string[], accion: string) {
@@ -199,7 +203,7 @@ export async function operar(sesion: SesionActiva, tipo: string, datos: Record<s
       const hash = hashClave(clave)
       if (usaTidb()) await guardarClave(id, hash, debeCambiar)
       else {
-        db.prepare(`
+        sqlite().prepare(`
           INSERT INTO clave (usuario_id, hash, debe_cambiar) VALUES (?, ?, ?)
           ON CONFLICT(usuario_id) DO UPDATE SET hash = excluded.hash, debe_cambiar = excluded.debe_cambiar
         `).run(id, hash, debeCambiar)
