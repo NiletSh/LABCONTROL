@@ -11,6 +11,22 @@ export function semestreValido(semestre: number) {
   return Number.isInteger(semestre) && semestre >= 1 && semestre <= 6
 }
 
+/** Los dos primeros dígitos del número de control son el año de ingreso. Agosto a diciembre es el semestre non; enero a julio, el par. */
+export function semestrePorControl(matricula: string, fechaIso: string) {
+  const anio = matricula.trim().match(/^(\d{2})/)
+  const partes = fechaIso.slice(0, 10).split('-')
+  const year = Number(partes[0])
+  const month = Number(partes[1])
+  if (!anio || !year || !month) return null
+  const ingreso = 2000 + Number(anio[1])
+  const inicioCiclo = month >= 8 ? year : year - 1
+  const mitad = month >= 8 ? 0 : 1
+  const semestre = (inicioCiclo - ingreso) * 2 + mitad + 1
+  if (semestre < 1) return null
+  if (semestre > 6) return { semestre: 6, concluido: true }
+  return { semestre, concluido: false }
+}
+
 export function turnoValido(turno: string): turno is TurnoId {
   return turno === 'matutino' || turno === 'vespertino'
 }

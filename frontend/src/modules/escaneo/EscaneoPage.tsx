@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { AlertTriangle, Camera, CameraOff, CheckCircle2 } from 'lucide-react'
 import type { Alumno } from '@shared/types'
-import { nombreTurno } from '@shared/academico'
+import { nombreTurno, semestrePorControl } from '@shared/academico'
 import type { CredencialQr } from '@shared/credencial'
 import { leerCredencialQr } from '@shared/credencial'
 import { esIngresoDuplicado, sesionDestinoDeIngreso } from '@shared/schedule'
@@ -148,18 +148,26 @@ export function EscaneoPage() {
         if (impreso.plantel) plantel = impreso.plantel
       }
       const faltaNombre = !registrado && !nombreImpreso
+      const calculo = semestrePorControl(credencial.matricula, momento.fecha)
+      if (calculo?.concluido) {
+        setLectura({ estado: 'rechazo', mensaje: `${registrado?.nombre || credencial.nombre || credencial.matricula} ya concluyó los seis semestres.` })
+        return
+      }
 
       const alumnoId = registrado?.id ?? nuevoId('alu')
-      const alumno: Alumno = registrado ?? {
-        id: alumnoId,
-        matricula: credencial.matricula,
-        nombre: nombreImpreso || credencial.matricula,
-        plantel: plantel || undefined,
-        semestre: credencial.semestre ?? sesion.semestre,
-        grupo: credencial.grupo || sesion.grupo,
-        turnoId: credencial.turnoId || sesion.turnoId,
-        estado: 'activo',
-      }
+      const semestre = calculo?.semestre ?? registrado?.semestre ?? credencial.semestre ?? sesion.semestre
+      const alumno: Alumno = registrado
+        ? { ...registrado, semestre }
+        : {
+          id: alumnoId,
+          matricula: credencial.matricula,
+          nombre: nombreImpreso || credencial.matricula,
+          plantel: plantel || undefined,
+          semestre,
+          grupo: credencial.grupo || sesion.grupo,
+          turnoId: credencial.turnoId || sesion.turnoId,
+          estado: 'activo',
+        }
       navigator.vibrate?.([40, 30, 40])
       sonarCredencialLeida()
       ultimoHasta.current = Date.now() + 15000

@@ -1,4 +1,4 @@
-import { etiquetaGrupo } from './academico.ts'
+import { etiquetaGrupo, semestreValido } from './academico.ts'
 import type { Alumno, DemoData, Equipo, EstadoEquipo, EstadoIncidencia, EstadoLaboratorio, EstadoPersona, EstadoReservacion, EstadoSesion, Incidencia, Maestro, Materia, Rol, TurnoId, Usuario } from './types.ts'
 
 function texto(value: unknown) {
@@ -188,6 +188,8 @@ function guardarIngreso(data: DemoData, datos: Record<string, unknown>, ids: str
   const matricula = texto(datos.matricula).toUpperCase()
   const existente = data.alumnos.find((alumno) => alumno.matricula.toUpperCase() === matricula)
   const alumnoId = existente?.id ?? ids[0]
+  const semestre = Number(datos.semestre)
+  if (existente && semestreValido(semestre)) existente.semestre = semestre
   if (!existente) {
     data.alumnos.unshift({
       id: alumnoId,
