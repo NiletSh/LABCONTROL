@@ -1,0 +1,10 @@
+node_modules
+dist
+frontend/certs
+.vite
+.env
+backend/data
+*.local
+.DS_Store
+dev-dist
+*.tsbuildinfo
