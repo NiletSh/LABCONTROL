@@ -6,6 +6,7 @@ import { NAV } from '../nav'
 import { can, rolLabel } from '../permissions'
 import { useApp } from '../state'
 import { EditorPerfil } from '../modules/acceso/PerfilPage'
+import { Notificaciones } from './Notificaciones'
 import { FotoPerfil, Mark } from './ui'
 
 const TONO: Record<string, string> = {
@@ -31,7 +32,7 @@ interface BeforeInstallPromptEvent extends Event {
 }
 
 export function Shell({ children }: { children: ReactNode }) {
-  const { role, cerrarSesion, apiOnline, toasts, dismissToast, usuarioId, usuarioNombre, data } = useApp()
+  const { role, cerrarSesion, apiOnline, toasts, dismissToast, usuarioId, usuarioNombre, data, puede } = useApp()
   const [open, setOpen] = useState(false)
   const [cuentaAbierta, setCuentaAbierta] = useState(false)
   const [editandoPerfil, setEditandoPerfil] = useState(false)
@@ -111,6 +112,8 @@ export function Shell({ children }: { children: ReactNode }) {
             </button>
             <strong>LAB CONTROL</strong>
           </div>
+          <div className="topbar-actions">
+          {data ? <Notificaciones data={data} puede={puede} /> : null}
           <div className="account">
             <button
               type="button"
@@ -148,6 +151,7 @@ export function Shell({ children }: { children: ReactNode }) {
                 </button>
               </div>
             ) : null}
+          </div>
           </div>
         </header>
         <div className="demo-banner">

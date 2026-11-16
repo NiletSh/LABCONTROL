@@ -27,6 +27,9 @@ export default defineConfig({
       registerType: 'autoUpdate',
       devOptions: { enabled: false },
       includeAssets: ['favicon.svg', 'pwa-192.png', 'pwa-512.png'],
+      workbox: {
+        globIgnores: ['**/ocr/**'],
+      },
       manifest: {
         name: 'LAB CONTROL',
         short_name: 'LAB CONTROL',
