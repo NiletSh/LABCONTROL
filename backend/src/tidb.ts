@@ -1,6 +1,6 @@
 import mysql from 'mysql2/promise'
 import type { Pool, PoolConnection, RowDataPacket } from 'mysql2/promise'
-import { getDemo } from '../../shared/demo.ts'
+import { ESCENARIO_FECHA, getDemo, HORA_REFERENCIA } from '../../shared/demo.ts'
 import type { DemoData, Incidencia, Maestro } from '../../shared/types.ts'
 import { hashClave } from './claves.ts'
 
@@ -139,9 +139,9 @@ export async function leerTidb() {
     meta: {
       fuente: 'demostracion',
       persistido: true,
-      escenarioFecha: texto(filaMeta?.escenario_fecha),
-      escenarioTexto: texto(filaMeta?.escenario_texto),
-      horaReferencia: hora(filaMeta?.hora_referencia) ?? '09:30',
+      escenarioFecha: fecha(filaMeta?.escenario_fecha) || ESCENARIO_FECHA,
+      escenarioTexto: texto(filaMeta?.escenario_texto) || 'Martes 3 de noviembre de 2026, turno matutino',
+      horaReferencia: hora(filaMeta?.hora_referencia) ?? HORA_REFERENCIA,
     },
     turnos: turnos.map((fila) => ({
       id: texto(fila.id) as DemoData['turnos'][number]['id'],
@@ -331,7 +331,7 @@ async function escribir(data: DemoData) {
     await db.query(
       `INSERT INTO meta (id, fuente, persistido, escenario_fecha, escenario_texto, hora_referencia) VALUES (1, ?, 1, ?, ?, ?)
        ON DUPLICATE KEY UPDATE fuente = VALUES(fuente), persistido = 1, escenario_fecha = VALUES(escenario_fecha), escenario_texto = VALUES(escenario_texto), hora_referencia = VALUES(hora_referencia)`,
-      [data.meta.fuente, data.meta.escenarioFecha, data.meta.escenarioTexto, horaSql(data.meta.horaReferencia)],
+      [data.meta.fuente || 'demostracion', fechaSql(data.meta.escenarioFecha) ?? ESCENARIO_FECHA, data.meta.escenarioTexto || 'Martes 3 de noviembre de 2026, turno matutino', horaSql(data.meta.horaReferencia) ?? `${HORA_REFERENCIA}:00`],
     )
     await db.query('SET FOREIGN_KEY_CHECKS = 1')
     await db.commit()
@@ -412,6 +412,15 @@ function hora(value: unknown) {
 function horaSql(value: string | null) {
   if (!value) return null
   return value.length === 5 ? `${value}:00` : value
+}
+
+function fecha(value: unknown) {
+  const match = texto(value).match(/^(\d{4}-\d{2}-\d{2})/)
+  return match ? match[1] : ''
+}
+
+function fechaSql(value: string | null | undefined) {
+  return fecha(value) || null
 }
 
 function fechaHora(value: unknown) {
