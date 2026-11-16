@@ -27,6 +27,11 @@ export function semestrePorControl(matricula: string, fechaIso: string) {
   return { semestre, concluido: false }
 }
 
+/** Credencial física usada solo para probar el escáner. El cálculo no cambia su registro. */
+export function esExpedienteDePrueba(matricula: string) {
+  return matricula.replace(/\D/g, '') === '221210106'
+}
+
 export function turnoValido(turno: string): turno is TurnoId {
   return turno === 'matutino' || turno === 'vespertino'
 }

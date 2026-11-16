@@ -1,6 +1,6 @@
 import mysql from 'mysql2/promise'
 import type { Pool, PoolConnection, RowDataPacket } from 'mysql2/promise'
-import { semestrePorControl } from '../../shared/academico.ts'
+import { esExpedienteDePrueba, semestrePorControl } from '../../shared/academico.ts'
 import { ESCENARIO_FECHA, getDemo, HORA_REFERENCIA } from '../../shared/demo.ts'
 import type { DemoData, Incidencia, Maestro } from '../../shared/types.ts'
 import { hashClave } from './claves.ts'
@@ -281,6 +281,7 @@ export async function leerTidb() {
 async function guardarSemestres(db: Pool, alumnos: DemoData['alumnos']) {
   const hoy = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Mexico_City', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date())
   for (const alumno of alumnos) {
+    if (esExpedienteDePrueba(alumno.matricula)) continue
     const calculo = semestrePorControl(alumno.matricula, hoy)
     if (!calculo) continue
     const estado = calculo.concluido && alumno.estado === 'activo' ? 'inactivo' : alumno.estado

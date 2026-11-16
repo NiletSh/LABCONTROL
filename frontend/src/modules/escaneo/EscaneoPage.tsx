@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { AlertTriangle, Camera, CameraOff, CheckCircle2 } from 'lucide-react'
 import type { Alumno } from '@shared/types'
-import { nombreTurno, semestrePorControl } from '@shared/academico'
+import { esExpedienteDePrueba, nombreTurno, semestrePorControl } from '@shared/academico'
 import type { CredencialQr } from '@shared/credencial'
 import { leerCredencialQr } from '@shared/credencial'
 import { esIngresoDuplicado, sesionDestinoDeIngreso } from '@shared/schedule'
@@ -121,7 +121,8 @@ export function EscaneoPage() {
       ultimaMatricula.current = credencial.matricula
       ultimoHasta.current = Date.now() + 15000
       const registrado = actual.alumnos.find((alumno) => alumno.matricula.toUpperCase() === credencial.matricula)
-      if (registrado?.estado === 'inactivo') {
+      const prueba = esExpedienteDePrueba(credencial.matricula)
+      if (registrado?.estado === 'inactivo' && !prueba) {
         setLectura({ estado: 'rechazo', mensaje: `${registrado.nombre} está inactivo y no puede ingresar.` })
         return
       }
@@ -149,7 +150,7 @@ export function EscaneoPage() {
       }
       const faltaNombre = !registrado && !nombreImpreso
       const calculo = semestrePorControl(credencial.matricula, momento.fecha)
-      if (calculo?.concluido) {
+      if (calculo?.concluido && !prueba) {
         setLectura({ estado: 'rechazo', mensaje: `${registrado?.nombre || credencial.nombre || credencial.matricula} ya concluyó los seis semestres.` })
         return
       }
@@ -376,6 +377,7 @@ export function EscaneoPage() {
                   <div><dt>Expediente</dt><dd>{lectura.alumno.matricula}</dd></div>
                   {lectura.alumno.plantel ? <div><dt>Plantel</dt><dd>{lectura.alumno.plantel}</dd></div> : null}
                   <div><dt>Semestre</dt><dd>{lectura.alumno.semestre}°</dd></div>
+                  {semestrePorControl(lectura.alumno.matricula, lectura.fecha)?.concluido ? <div><dt>Estado</dt><dd>Inactivo. El número de control ya pasó los seis semestres. Esta credencial de prueba sí se puede confirmar.</dd></div> : null}
                   <div><dt>Grupo</dt><dd>{lectura.alumno.grupo}</dd></div>
                   <div><dt>Turno</dt><dd>{nombreTurno(lectura.alumno.turnoId)}</dd></div>
                   <div><dt>Laboratorio</dt><dd>{laboratorio?.nombre}</dd></div>

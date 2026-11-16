@@ -1,4 +1,4 @@
-import { grupoValido, semestreValido, turnoValido } from './academico.ts'
+import { esExpedienteDePrueba, grupoValido, semestreValido, turnoValido } from './academico.ts'
 import { matriculaValida } from './credencial.ts'
 import { conflictoDeHorario, dentroDeRango, esIngresoDuplicado, fechaValida, horaValida, rangosSeCruzan, toMinutes } from './schedule.ts'
 import type { DemoData, EstadoAlumno, EstadoEquipo, EstadoIncidencia, EstadoLaboratorio, EstadoPersona, EstadoReservacion, EstadoSesion, Rol } from './types.ts'
@@ -135,7 +135,7 @@ function revisarIngreso(input: Record<string, unknown>, data: DemoData): Revisio
 
   const alumno = data.alumnos.find((item) => item.matricula.toUpperCase() === matricula)
   if (alumno) {
-    if (alumno.estado !== 'activo') {
+    if (alumno.estado !== 'activo' && !esExpedienteDePrueba(matricula)) {
       return fallo([{ field: 'estado', message: `${alumno.nombre} está inactivo y no puede ingresar.` }])
     }
     if (esIngresoDuplicado(data.ingresos, alumno.id, sesion.id)) {
