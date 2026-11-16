@@ -16,7 +16,7 @@ export function configuracionTidb() {
   const user = process.env.DB_USER || process.env.USERNAME || ''
   const password = process.env.DB_PASSWORD || process.env.PASSWORD || ''
   const database = process.env.DB_NAME || process.env.DATABASE || ''
-  const port = Number(process.env.DB_PORT || process.env.PORT || 4000)
+  const port = Number(process.env.DB_PORT || 4000)
   if (!host || !user || !password || !database || !Number.isFinite(port)) return null
   if (!/^[A-Za-z0-9_]+$/.test(database)) return null
   return { host, user, password, database, port }

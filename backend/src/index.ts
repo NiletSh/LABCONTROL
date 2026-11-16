@@ -216,7 +216,7 @@ function esFormato(value: unknown): value is FormatoInforme {
 }
 
 if (!process.env.VERCEL) {
-  app.listen(port, () => {
+  app.listen(port, '0.0.0.0', () => {
     console.log(`LAB CONTROL API en http://localhost:${port}`)
     console.log(usaTidb() ? 'Fuente: TiDB. Los cambios se guardan en la base de la nube.' : 'Fuente: SQLite en backend/data/lab-control.sqlite. Los cambios se conservan al recargar.')
   })

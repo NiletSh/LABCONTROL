@@ -4,6 +4,11 @@ import type { DemoData } from '@shared/types'
 import type { Revision } from '@shared/validate'
 import { leerToken } from './sesion'
 
+export function rutaApi(ruta: string) {
+  const base = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '')
+  return `${base}${ruta}`
+}
+
 function cabeceras() {
   const token = leerToken()
   return {
@@ -14,7 +19,7 @@ function cabeceras() {
 
 export async function validarEnServidor(tipo: string, datos: unknown) {
   try {
-    const response = await fetch('/api/validar', {
+    const response = await fetch(rutaApi('/api/validar'), {
       method: 'POST',
       headers: cabeceras(),
       body: JSON.stringify({ tipo, datos }),
@@ -29,7 +34,7 @@ export async function validarEnServidor(tipo: string, datos: unknown) {
 }
 
 export async function vistaInforme(id: string, filtros: FiltrosInforme) {
-  const response = await fetch('/api/informes/vista', {
+  const response = await fetch(rutaApi('/api/informes/vista'), {
     method: 'POST',
     headers: cabeceras(),
     body: JSON.stringify({ id, filtros }),
@@ -40,7 +45,7 @@ export async function vistaInforme(id: string, filtros: FiltrosInforme) {
 }
 
 export async function vistaInstitucional(tipo: TipoInstitucional, extension: ExtensionInforme, filtros: FiltrosInforme, membrete: Membrete) {
-  const response = await fetch('/api/informes/institucional', {
+  const response = await fetch(rutaApi('/api/informes/institucional'), {
     method: 'POST',
     headers: cabeceras(),
     body: JSON.stringify({ institucional: { tipo, extension }, filtros, membrete }),
@@ -51,7 +56,7 @@ export async function vistaInstitucional(tipo: TipoInstitucional, extension: Ext
 }
 
 export async function descargarInforme(id: string, formato: FormatoInforme, filtros: FiltrosInforme, membrete: Membrete, logo: string, institucional?: { tipo: TipoInstitucional; extension: ExtensionInforme }) {
-  const response = await fetch('/api/informes/archivo', {
+  const response = await fetch(rutaApi('/api/informes/archivo'), {
     method: 'POST',
     headers: cabeceras(),
     body: JSON.stringify({ id, formato, filtros, membrete, logo: formato === 'pdf' || formato === 'docx' ? logo : '', institucional }),
@@ -70,7 +75,7 @@ export async function descargarInforme(id: string, formato: FormatoInforme, filt
 }
 
 export async function descargarExcel(filas: unknown[], filtros: string[]) {
-  const response = await fetch('/api/reportes/excel', {
+  const response = await fetch(rutaApi('/api/reportes/excel'), {
     method: 'POST',
     headers: cabeceras(),
     body: JSON.stringify({ filas, filtros }),
@@ -89,7 +94,7 @@ export async function descargarExcel(filas: unknown[], filtros: string[]) {
 }
 
 export async function operarEnServidor(tipo: string, datos: unknown, ids: string[], accion: string) {
-  const response = await fetch('/api/operacion', {
+  const response = await fetch(rutaApi('/api/operacion'), {
     method: 'POST',
     headers: cabeceras(),
     body: JSON.stringify({ tipo, datos, ids, accion }),
@@ -99,7 +104,7 @@ export async function operarEnServidor(tipo: string, datos: unknown, ids: string
 }
 
 export async function cambiarClaveEnServidor(nueva: string, actual: string) {
-  const response = await fetch('/api/sesion/clave', {
+  const response = await fetch(rutaApi('/api/sesion/clave'), {
     method: 'POST',
     headers: cabeceras(),
     body: JSON.stringify({ nueva, actual }),

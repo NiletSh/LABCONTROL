@@ -3,7 +3,7 @@ import type { ReactNode } from 'react'
 import type { DemoData, Rol } from '@shared/types'
 import { revisar } from '@shared/validate'
 import type { Revision } from '@shared/validate'
-import { cambiarClaveEnServidor, operarEnServidor } from './api'
+import { cambiarClaveEnServidor, operarEnServidor, rutaApi } from './api'
 import { can } from './permissions'
 import { borrarToken, guardarToken, leerToken } from './sesion'
 
@@ -81,7 +81,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     }
     for (let intento = 0; intento < 12; intento += 1) {
       try {
-        const response = await fetch('/api/bootstrap', { headers: { Authorization: `Bearer ${leerToken()}` } })
+        const response = await fetch(rutaApi('/api/bootstrap'), { headers: { Authorization: `Bearer ${leerToken()}` } })
         if (response.status === 401) {
           borrarToken()
           setData(null)
@@ -118,7 +118,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
 
   const entrar = useCallback(async (correo: string, clave: string, recordar = false) => {
     try {
-      const response = await fetch('/api/sesion/entrar', {
+      const response = await fetch(rutaApi('/api/sesion/entrar'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ correo, clave }),
@@ -142,7 +142,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   const cerrarSesion = useCallback(() => {
     const token = leerToken()
     if (token) {
-      void fetch('/api/sesion/cerrar', { method: 'POST', headers: { Authorization: `Bearer ${token}` } })
+      void fetch(rutaApi('/api/sesion/cerrar'), { method: 'POST', headers: { Authorization: `Bearer ${token}` } })
     }
     borrarToken()
     setUsuarioId(null)
