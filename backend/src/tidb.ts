@@ -77,14 +77,18 @@ async function crearEsquema() {
     await db.query(sentencia)
   }
   const [cuentas] = await db.query<RowDataPacket[]>('SELECT COUNT(*) AS total FROM usuario')
-  if (Number(cuentas[0]?.total ?? 0) === 0) {
+  const [turnos] = await db.query<RowDataPacket[]>('SELECT COUNT(*) AS total FROM turno')
+  const [alumnos] = await db.query<RowDataPacket[]>('SELECT COUNT(*) AS total FROM alumno')
+  const sinCatalogo = Number(turnos[0]?.total ?? 0) === 0 && Number(alumnos[0]?.total ?? 0) === 0
+  if (Number(cuentas[0]?.total ?? 0) === 0 || sinCatalogo) {
     const demo = getDemo()
     await escribir(demo)
     for (const usuario of demo.usuarios) {
       const clave = CLAVES_SEMILLA[usuario.id]
-      if (clave) await insertarClave(usuario.id, hashClave(clave), 0)
+      if (!clave) continue
+      const [ya] = await db.query<RowDataPacket[]>('SELECT usuario_id FROM clave WHERE usuario_id = ?', [usuario.id])
+      if (!ya.length) await insertarClave(usuario.id, hashClave(clave), 0)
     }
-    return
   }
   const [existe] = await db.query<RowDataPacket[]>('SELECT id FROM usuario WHERE correo = ?', ['sayleonnieto8@gmail.com'])
   if (!existe.length) {
@@ -93,6 +97,10 @@ async function crearEsquema() {
     )
     await insertarClave('usr-sayle', hashClave('Admin2026'), 0)
   }
+}
+
+export async function prepararBase() {
+  await preparar()
 }
 
 export async function leerTidb() {

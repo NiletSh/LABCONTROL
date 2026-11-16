@@ -6,7 +6,7 @@ import type { FormatoInforme } from '../../shared/informes.ts'
 import { leerSolicitudInstitucional, redactarInstitucional, TIPOS_INSTITUCIONALES } from '../../shared/institucional.ts'
 import { permisoDeOperacion, puede } from '../../shared/permisos.ts'
 import { cambiarClave, cerrar, entrar, leerDatos, operar, sesionDe } from './almacen.ts'
-import { usaTidb } from './tidb.ts'
+import { prepararBase, usaTidb } from './tidb.ts'
 import { construirControlExcel } from './control-excel.ts'
 import { exportarDocumento, exportarInforme, leerLogo, nombreArchivo, tipoContenido } from './documentos.ts'
 import { construirExcel } from './excel.ts'
@@ -224,6 +224,9 @@ if (!process.env.VERCEL) {
   app.listen(port, '0.0.0.0', () => {
     console.log(`LAB CONTROL API en http://localhost:${port}`)
     console.log(usaTidb() ? 'Fuente: MySQL. Los cambios se guardan en la base de la nube.' : 'Faltan DB_HOST, DB_USER, DB_PASSWORD y DB_NAME. La API no abre otra base.')
+    if (usaTidb()) {
+      void prepararBase().catch((error) => console.error(error))
+    }
   })
 }
 
