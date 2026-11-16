@@ -6,7 +6,7 @@ import type { CredencialQr } from '@shared/credencial'
 import { leerCredencialQr } from '@shared/credencial'
 import { esIngresoDuplicado, sesionDestinoDeIngreso } from '@shared/schedule'
 import { Button, Field, LabPicker, PageHeader } from '../../components/ui'
-import { fechaLarga } from '../../format'
+import { ahoraLocal, fechaLarga } from '../../format'
 import { nuevoId } from '../../forms'
 import { useApp, useData } from '../../state'
 import { leerCredencialImpresa, prepararLecturaImpresa } from './impreso'
@@ -17,11 +17,17 @@ type Camara = 'idle' | 'starting' | 'live' | 'denied' | 'unsupported'
 
 type Lectura =
   | { estado: 'leyendo'; expediente: string }
-  | { estado: 'ok'; alumno: Alumno; nuevo: boolean; soloExpediente: boolean }
+  | { estado: 'pendiente'; alumno: Alumno; nuevo: boolean; soloExpediente: boolean; sesionId: string; fecha: string; hora: string }
+  | { estado: 'ok'; alumno: Alumno; nuevo: boolean; soloExpediente: boolean; ingresoId: string; sesionId: string; fecha: string; hora: string }
   | { estado: 'duplicado'; nombre: string; expediente: string; dePrueba: boolean }
   | { estado: 'rechazo'; mensaje: string }
-  | { estado: 'sin-sesion'; credencial: CredencialQr }
+  | { estado: 'sin-sesion'; credencial: CredencialQr; hora: string }
   | { estado: 'ajena'; texto: string }
+
+function relojActual() {
+  const marca = ahoraLocal()
+  return { fecha: marca.slice(0, 10), hora: marca.slice(11, 16) }
+}
 
 export function EscaneoPage() {
   const data = useData()
@@ -38,11 +44,12 @@ export function EscaneoPage() {
   const lecturaRef = useRef<Lectura | null>(null)
   const [camara, setCamara] = useState<Camara>('idle')
   const [lectura, setLectura] = useState<Lectura | null>(null)
+  const [reloj, setReloj] = useState(relojActual)
   const [nombreEscrito, setNombreEscrito] = useState('')
   const [errorNombre, setErrorNombre] = useState('')
   const [laboratorioId, setLaboratorioId] = useState(data.laboratorios[0]?.id ?? '')
   const laboratorio = data.laboratorios.find((item) => item.id === laboratorioId)
-  const destino = sesionDestinoDeIngreso(data.sesiones, laboratorioId, data.meta.escenarioFecha, data.meta.horaReferencia)
+  const destino = sesionDestinoDeIngreso(data.sesiones, laboratorioId, reloj.fecha, reloj.hora)
   const sesionMateria = data.materias.find((item) => item.id === destino?.materiaId)
   const sesionMaestro = data.maestros.find((item) => item.id === destino?.maestroId)
   datosRef.current = data
@@ -103,9 +110,11 @@ export function EscaneoPage() {
         setLectura({ estado: 'ajena', texto })
         return
       }
-      const sesion = sesionDestinoDeIngreso(actual.sesiones, laboratorioId, actual.meta.escenarioFecha, actual.meta.horaReferencia)
+      if (lecturaRef.current?.estado === 'pendiente') return
+      const momento = relojActual()
+      const sesion = sesionDestinoDeIngreso(actual.sesiones, laboratorioId, momento.fecha, momento.hora)
       if (!sesion) {
-        setLectura({ estado: 'sin-sesion', credencial })
+        setLectura({ estado: 'sin-sesion', credencial, hora: momento.hora })
         return
       }
       if (credencial.matricula === ultimaMatricula.current && Date.now() < ultimoHasta.current) return
@@ -140,9 +149,7 @@ export function EscaneoPage() {
       }
       const faltaNombre = !registrado && !nombreImpreso
 
-      vistos.current.add(clave)
       const alumnoId = registrado?.id ?? nuevoId('alu')
-      const ingresoId = nuevoId('ing')
       const alumno: Alumno = registrado ?? {
         id: alumnoId,
         matricula: credencial.matricula,
@@ -153,82 +160,27 @@ export function EscaneoPage() {
         turnoId: credencial.turnoId || sesion.turnoId,
         estado: 'activo',
       }
-      const resultado = await guardarRef.current({
-        tipo: 'ingreso',
-        datos: {
-          matricula: alumno.matricula,
-          nombre: alumno.nombre,
-          semestre: alumno.semestre,
-          grupo: alumno.grupo,
-          turnoId: alumno.turnoId,
-          sesionId: sesion.id,
-          laboratorioId,
-          fecha: actual.meta.escenarioFecha,
-          hora: actual.meta.horaReferencia,
-        },
-        accion: faltaNombre
-          ? `Registró el ingreso del expediente ${alumno.matricula}.`
-          : `Registró el ingreso de ${alumno.nombre} con la credencial.`,
-        ids: registrado ? [ingresoId] : [alumnoId, ingresoId],
-        silencioso: true,
-        aplicar: (draft) => {
-          if (!registrado) draft.alumnos.unshift(alumno)
-          draft.ingresos.push({
-            id: ingresoId,
-            alumnoId: alumno.id,
-            sesionId: sesion.id,
-            fecha: actual.meta.escenarioFecha,
-            hora: actual.meta.horaReferencia,
-          })
-        },
-      })
-      if (!resultado.ok) {
-        vistos.current.delete(clave)
-        if (resultado.conflict) {
-          navigator.vibrate?.([30, 50, 30])
-          setLectura({ estado: 'duplicado', nombre: alumno.nombre, expediente: alumno.matricula, dePrueba: false })
-        } else {
-          setLectura({ estado: 'rechazo', mensaje: resultado.message })
-        }
-        return
-      }
       navigator.vibrate?.([40, 30, 40])
       sonarCredencialLeida()
-      avisar('Credencial leída.', 'ok')
       ultimoHasta.current = Date.now() + 15000
-      setNombreEscrito('')
+      setNombreEscrito(alumno.nombre === alumno.matricula ? '' : alumno.nombre)
       setErrorNombre('')
-      setLectura({ estado: 'ok', alumno, nuevo: !registrado, soloExpediente: faltaNombre })
+      setLectura({
+        estado: 'pendiente',
+        alumno,
+        nuevo: !registrado,
+        soloExpediente: faltaNombre,
+        sesionId: sesion.id,
+        fecha: momento.fecha,
+        hora: momento.hora,
+      })
     } finally {
       ocupado.current = false
     }
   }
 
-  const quitarPrueba = async () => {
-    const expediente = lectura?.estado === 'ok'
-      ? lectura.alumno.matricula
-      : lectura?.estado === 'duplicado' ? lectura.expediente : ''
-    if (!expediente) return
-    const actual = datosRef.current
-    const sesion = sesionDestinoDeIngreso(actual.sesiones, laboratorioId, actual.meta.escenarioFecha, actual.meta.horaReferencia)
-    const alumno = actual.alumnos.find((item) => item.matricula.toUpperCase() === expediente)
-    const ingreso = actual.ingresos.find((item) => item.alumnoId === alumno?.id && item.sesionId === sesion?.id && item.id.startsWith('local-'))
-    if (!alumno || !sesion || !ingreso) return
-    const tieneOtroIngreso = actual.ingresos.some((item) => item.alumnoId === alumno.id && item.id !== ingreso.id)
-    await guardar({
-      tipo: 'ingreso.prueba',
-      datos: { expediente, ingresoId: ingreso.id, alumnoId: alumno.id, borrarAlumno: alumno.id.startsWith('local-') && !tieneOtroIngreso },
-      accion: `Quitó la prueba del expediente ${expediente} para volver a escanearla.`,
-      ids: [ingreso.id],
-      silencioso: true,
-      aplicar: (draft) => {
-        draft.ingresos = draft.ingresos.filter((item) => item.id !== ingreso.id)
-        if (alumno.id.startsWith('local-') && !tieneOtroIngreso) {
-          draft.alumnos = draft.alumnos.filter((item) => item.id !== alumno.id)
-        }
-      },
-    })
-    vistos.current.delete(`${expediente}|${sesion.id}`)
+  const limpiarLectura = (expediente?: string, sesionId?: string) => {
+    if (expediente && sesionId) vistos.current.delete(`${expediente}|${sesionId}`)
     ultimaMatricula.current = ''
     ultimoTexto.current = ''
     ultimoHasta.current = 0
@@ -237,39 +189,93 @@ export function EscaneoPage() {
     setLectura(null)
   }
 
-  const completarNombre = async () => {
-    if (lectura?.estado !== 'ok') return
-    const nombre = nombreEscrito.trim()
+  const descartar = () => {
+    if (lectura?.estado === 'pendiente') limpiarLectura(lectura.alumno.matricula, lectura.sesionId)
+  }
+
+  const confirmar = async () => {
+    if (lectura?.estado !== 'pendiente') return
+    const nombre = (lectura.soloExpediente ? nombreEscrito : lectura.alumno.nombre).trim()
     if (nombre.length < 5 || !nombre.includes(' ')) {
       setErrorNombre('Escribe el nombre completo, tal como está en la credencial.')
       return
     }
-    const alumno = lectura.alumno
+    const alumno = { ...lectura.alumno, nombre }
+    const ingresoId = nuevoId('ing')
     const resultado = await guardar({
-      tipo: 'alumno',
+      tipo: 'ingreso',
       datos: {
-        id: alumno.id,
         matricula: alumno.matricula,
-        nombre,
+        nombre: alumno.nombre,
+        plantel: alumno.plantel,
         semestre: alumno.semestre,
         grupo: alumno.grupo,
         turnoId: alumno.turnoId,
-        estado: alumno.estado,
+        sesionId: lectura.sesionId,
+        laboratorioId,
+        fecha: lectura.fecha,
+        hora: lectura.hora,
       },
-      accion: `Anotó el nombre de ${nombre} desde la credencial.`,
-      ids: [alumno.id],
+      accion: `Confirmó el ingreso de ${alumno.nombre} al laboratorio.`,
+      ids: lectura.nuevo ? [alumno.id, ingresoId] : [ingresoId],
       silencioso: true,
       aplicar: (draft) => {
-        const item = draft.alumnos.find((row) => row.id === alumno.id)
-        if (item) item.nombre = nombre
+        if (lectura.nuevo && !draft.alumnos.some((item) => item.matricula.toUpperCase() === alumno.matricula)) {
+          draft.alumnos.unshift(alumno)
+        }
+        draft.ingresos.push({
+          id: ingresoId,
+          alumnoId: alumno.id,
+          sesionId: lectura.sesionId,
+          fecha: lectura.fecha,
+          hora: lectura.hora,
+        })
       },
     })
     if (!resultado.ok) {
-      setErrorNombre(resultado.message)
+      if (resultado.conflict) {
+        setLectura({ estado: 'duplicado', nombre: alumno.nombre, expediente: alumno.matricula, dePrueba: false })
+      } else {
+        setErrorNombre(resultado.message)
+      }
       return
     }
+    vistos.current.add(`${alumno.matricula}|${lectura.sesionId}`)
+    avisar('Ingreso registrado.', 'ok')
     setErrorNombre('')
-    setLectura({ estado: 'ok', alumno: { ...alumno, nombre }, nuevo: lectura.nuevo, soloExpediente: false })
+    setLectura({
+      estado: 'ok',
+      alumno,
+      nuevo: lectura.nuevo,
+      soloExpediente: false,
+      ingresoId,
+      sesionId: lectura.sesionId,
+      fecha: lectura.fecha,
+      hora: lectura.hora,
+    })
+  }
+
+  const quitarPrueba = async () => {
+    if (lectura?.estado === 'pendiente') {
+      descartar()
+      return
+    }
+    if (lectura?.estado !== 'ok') return
+    const { alumno, ingresoId, sesionId, nuevo } = lectura
+    const actual = datosRef.current
+    const tieneOtroIngreso = actual.ingresos.some((item) => item.alumnoId === alumno.id && item.id !== ingresoId)
+    await guardar({
+      tipo: 'ingreso.prueba',
+      datos: { expediente: alumno.matricula, ingresoId, alumnoId: alumno.id, borrarAlumno: nuevo && !tieneOtroIngreso },
+      accion: `Quitó el ingreso de ${alumno.matricula} para volver a escanear.`,
+      ids: [ingresoId],
+      silencioso: true,
+      aplicar: (draft) => {
+        draft.ingresos = draft.ingresos.filter((item) => item.id !== ingresoId)
+        if (nuevo && !tieneOtroIngreso) draft.alumnos = draft.alumnos.filter((item) => item.id !== alumno.id)
+      },
+    })
+    limpiarLectura(alumno.matricula, sesionId)
   }
 
   const alLeer = useRef(procesar)
@@ -277,6 +283,11 @@ export function EscaneoPage() {
 
   useEffect(() => () => {
     streamRef.current?.getTracks().forEach((track) => track.stop())
+  }, [])
+
+  useEffect(() => {
+    const relojId = window.setInterval(() => setReloj(relojActual()), 15000)
+    return () => window.clearInterval(relojId)
   }, [])
 
   useEffect(() => {
@@ -346,9 +357,12 @@ export function EscaneoPage() {
                 <p>Ya se vio el expediente {lectura.expediente}. Mantén la credencial quieta para leer el nombre impreso.</p>
               </>
             ) : null}
-            {lectura?.estado === 'ok' ? (
+            {lectura?.estado === 'pendiente' || lectura?.estado === 'ok' ? (
               <>
-                <div className="confirm-banner"><CheckCircle2 size={18} /> Ingreso registrado</div>
+                <div className="confirm-banner">
+                  <CheckCircle2 size={18} />
+                  {lectura.estado === 'ok' ? 'Ingreso registrado' : 'Revisa los datos de la credencial'}
+                </div>
                 <dl className="dl-grid">
                   <div><dt>Nombre</dt><dd>{lectura.soloExpediente ? 'No viene en el código de barras' : lectura.alumno.nombre}</dd></div>
                   <div><dt>Expediente</dt><dd>{lectura.alumno.matricula}</dd></div>
@@ -357,23 +371,23 @@ export function EscaneoPage() {
                   <div><dt>Grupo</dt><dd>{lectura.alumno.grupo}</dd></div>
                   <div><dt>Turno</dt><dd>{nombreTurno(lectura.alumno.turnoId)}</dd></div>
                   <div><dt>Laboratorio</dt><dd>{laboratorio?.nombre}</dd></div>
-                  <div><dt>Fecha</dt><dd>{fechaLarga(data.meta.escenarioFecha)}</dd></div>
-                  <div><dt>Hora</dt><dd>{data.meta.horaReferencia}</dd></div>
+                  <div><dt>Fecha</dt><dd>{fechaLarga(lectura.fecha)}</dd></div>
+                  <div><dt>Hora</dt><dd>{lectura.hora}</dd></div>
                 </dl>
-                {lectura.soloExpediente ? (
+                {lectura.estado === 'pendiente' && errorNombre && !lectura.soloExpediente ? <p className="hint">{errorNombre}</p> : null}
+                {lectura.estado === 'pendiente' && lectura.soloExpediente ? (
                   <Field label="Nombre en la credencial" error={errorNombre} hint="Escríbelo como está impreso: apellidos y nombre.">
                     <input value={nombreEscrito} onChange={(event) => setNombreEscrito(event.target.value)} placeholder="Apellidos y nombre" />
                   </Field>
                 ) : null}
-                {lectura.soloExpediente ? <Button type="button" onClick={() => { void completarNombre() }}>Guardar nombre</Button> : null}
-                <p className="hint">
-                  {lectura.soloExpediente
-                    ? 'El código de barras trae el expediente. El nombre está impreso en la credencial y se guarda aquí.'
-                    : lectura.nuevo
-                      ? 'Esos datos venían en el código y el alumno quedó dado de alta junto con el ingreso.'
-                      : 'El expediente del código coincide con un alumno ya registrado.'}
-                </p>
-                <Button type="button" variant="secondary" onClick={() => { void quitarPrueba() }}>Borrar esta prueba y escanear otra vez</Button>
+                {lectura.estado === 'pendiente' ? (
+                  <div className="row-actions">
+                    <Button type="button" onClick={() => { void confirmar() }}>Los datos son correctos</Button>
+                    <Button type="button" variant="secondary" onClick={descartar}>Borrar esta prueba y escanear otra vez</Button>
+                  </div>
+                ) : (
+                  <Button type="button" variant="secondary" onClick={() => { void quitarPrueba() }}>Borrar esta prueba y escanear otra vez</Button>
+                )}
               </>
             ) : null}
             {lectura?.estado === 'duplicado' ? (
@@ -385,7 +399,7 @@ export function EscaneoPage() {
                     : `${lectura.nombre} (expediente ${lectura.expediente}) ya tiene un ingreso en esta sesión.`}
                   {' '}La cámara sí leyó el código. El segundo pase no se guarda.
                 </p>
-                {lectura.dePrueba ? <Button type="button" variant="secondary" onClick={() => { void quitarPrueba() }}>Borrar esta prueba y escanear otra vez</Button> : null}
+                <Button type="button" variant="secondary" onClick={() => limpiarLectura()}>Escanear otra credencial</Button>
               </>
             ) : null}
             {lectura?.estado === 'rechazo' ? (
@@ -397,7 +411,7 @@ export function EscaneoPage() {
             {lectura?.estado === 'sin-sesion' ? (
               <>
                 <div className="confirm-banner is-warn"><AlertTriangle size={18} /> Sin sesión en curso</div>
-                <p>El código se leyó, pero en este laboratorio no hay una sesión a las {data.meta.horaReferencia}. No se guardó el ingreso.</p>
+                <p>El código se leyó, pero en este laboratorio no hay una sesión a las {lectura.hora}. No se guardó el ingreso.</p>
                 <dl className="dl-grid">
                   <div><dt>Matrícula</dt><dd>{lectura.credencial.matricula}</dd></div>
                   <div><dt>Alumno</dt><dd>{lectura.credencial.nombre || 'No venía en el código'}</dd></div>
@@ -416,9 +430,9 @@ export function EscaneoPage() {
                 <p>Encuadra la credencial completa. El nombre se toma de lo impreso y el expediente, del código de barras.</p>
                 <dl className="dl-grid">
                   <div><dt>Laboratorio</dt><dd>{laboratorio?.nombre ?? 'Sin seleccionar'}</dd></div>
-                  <div><dt>Fecha y hora</dt><dd>{fechaLarga(data.meta.escenarioFecha)} · {data.meta.horaReferencia}</dd></div>
+                  <div><dt>Fecha y hora</dt><dd>{fechaLarga(reloj.fecha)} · {reloj.hora}</dd></div>
                   <div><dt>Expediente</dt><dd>Pendiente de lectura</dd></div>
-                  <div><dt>Registro</dt><dd>Se crea al leer el código</dd></div>
+                  <div><dt>Registro</dt><dd>Se guarda al confirmar los datos</dd></div>
                 </dl>
               </>
             ) : null}
@@ -428,7 +442,7 @@ export function EscaneoPage() {
             <h2>Sesión vinculada</h2>
             {destino ? (
               <>
-                <p>El código leído a las {data.meta.horaReferencia} queda en esta sesión.</p>
+                <p>El código leído a las {reloj.hora} queda en esta sesión al confirmar los datos.</p>
                 <dl className="dl-grid">
                   <div><dt>Materia</dt><dd>{sesionMateria?.nombre}</dd></div>
                   <div><dt>Maestro</dt><dd>{sesionMaestro?.nombre}</dd></div>
@@ -439,7 +453,7 @@ export function EscaneoPage() {
                 </dl>
               </>
             ) : (
-              <p>No hay una sesión en curso en este laboratorio a las {data.meta.horaReferencia}. Un código leído ahora no se asociaría a ninguna sesión.</p>
+              <p>No hay una sesión en curso en este laboratorio a las {reloj.hora}. Un código leído ahora no se asociaría a ninguna sesión.</p>
             )}
           </article>
         </div>

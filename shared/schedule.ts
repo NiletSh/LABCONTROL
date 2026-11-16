@@ -150,7 +150,7 @@ export function sesionDestinoDeIngreso(sesiones: Sesion[], laboratorioId: string
   return sesiones.find((sesion) => (
     sesion.laboratorioId === laboratorioId
     && sesion.fecha === fecha
-    && sesion.estado === 'activa'
+    && (sesion.estado === 'activa' || sesion.estado === 'programada')
     && minuto >= toMinutes(sesion.horaInicio)
     && minuto < toMinutes(sesion.horaFin)
   )) ?? null

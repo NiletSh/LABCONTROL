@@ -120,7 +120,7 @@ function revisarIngreso(input: Record<string, unknown>, data: DemoData): Revisio
   if (!matriculaValida(matricula)) {
     return fallo([{ field: 'matricula', message: 'El código no trae un expediente válido.' }])
   }
-  if (!sesion || sesion.estado !== 'activa') {
+  if (!sesion || (sesion.estado !== 'activa' && sesion.estado !== 'programada')) {
     return fallo([{ field: 'sesionId', message: 'No hay una sesión en curso para registrar el ingreso.' }])
   }
   if (sesion.laboratorioId !== texto(input.laboratorioId)) {
