@@ -46,7 +46,11 @@ app.post('/api/sesion/entrar', async (req, res) => {
     res.json(resultado)
   } catch (error) {
     console.error(error)
-    res.status(503).json({ ok: false, message: 'No hay conexión con la base de datos.' })
+    const falta = error instanceof Error && error.message.startsWith('Faltan los datos de MySQL')
+    res.status(503).json({
+      ok: false,
+      message: falta ? 'Faltan los datos de MySQL en el servidor.' : 'No hay conexión con la base de datos.',
+    })
   }
 })
 
