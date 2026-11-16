@@ -100,7 +100,7 @@ export function Shell({ children }: { children: ReactNode }) {
           <p>La sesión es de esta visita. Para ver el otro rol, cierra sesión y entra con la otra cuenta.</p>
           <div className={apiOnline ? 'api-state is-on' : 'api-state'}>
             <span />
-            {apiOnline ? 'API en línea · sin base de datos' : 'API sin conexión'}
+            {apiOnline ? 'API en línea · MySQL' : 'API sin conexión'}
           </div>
         </div>
       </aside>

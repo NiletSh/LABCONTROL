@@ -102,7 +102,7 @@ export function Modal({
 export function FormNote() {
   return (
     <p className="form-note">
-      Este formulario está listo para conectarse a la base de datos. En esta etapa el cambio no se conserva al recargar.
+      El cambio se guarda en MySQL.
     </p>
   )
 }

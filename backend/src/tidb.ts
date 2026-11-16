@@ -31,7 +31,7 @@ let listo: Promise<void> | null = null
 
 function conexion() {
   const cfg = configuracionTidb()
-  if (!cfg) throw new Error('Faltan los datos de TiDB.')
+  if (!cfg) throw new Error('Faltan los datos de MySQL.')
   if (!pool) {
     pool = mysql.createPool({
       host: cfg.host,

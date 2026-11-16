@@ -28,7 +28,8 @@ app.get('/api/health', (_req, res) => {
   res.json({
     ok: true,
     servicio: 'LAB CONTROL API',
-    fuente: usaTidb() ? 'tidb' : 'sqlite',
+    fuente: 'mysql',
+    mysql: usaTidb(),
     persistido: true,
   })
 })
@@ -218,7 +219,7 @@ function esFormato(value: unknown): value is FormatoInforme {
 if (!process.env.VERCEL) {
   app.listen(port, '0.0.0.0', () => {
     console.log(`LAB CONTROL API en http://localhost:${port}`)
-    console.log(usaTidb() ? 'Fuente: TiDB. Los cambios se guardan en la base de la nube.' : 'Fuente: SQLite en backend/data/lab-control.sqlite. Los cambios se conservan al recargar.')
+    console.log(usaTidb() ? 'Fuente: MySQL. Los cambios se guardan en la base de la nube.' : 'Faltan DB_HOST, DB_USER, DB_PASSWORD y DB_NAME. La API no abre otra base.')
   })
 }
 
