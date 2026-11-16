@@ -6,7 +6,7 @@
     "dev:api": "npm run dev -w backend",
     "dev:web": "npm run dev -w frontend",
     "dev": "concurrently -n api,web -c cyan,blue npm:dev:api npm:dev:web",
-    "build": "npm run icons && npm run build -w frontend && node scripts/copiar-dist.mjs",
+    "build": "npm run icons && npm run build -w frontend",
     "icons": "node frontend/scripts/make-icons.mjs",
     "check": "npm run check -w backend && npm run check -w frontend"
   },

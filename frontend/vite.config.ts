@@ -49,6 +49,10 @@ export default defineConfig({
       },
     }),
   ],
+  build: {
+    outDir: '../dist',
+    emptyOutDir: true,
+  },
   resolve: {
     alias: {
       '@shared': fileURLToPath(new URL('../shared', import.meta.url)),
