@@ -129,12 +129,11 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
         const texto = await response.text()
         let body: { ok?: boolean; message?: string; token?: string; usuario?: { id: string }; debeCambiar?: boolean; data?: DemoData } | null = null
         try {
-          body = JSON.parse(texto) as typeof body
+          body = JSON.parse(texto) as { ok?: boolean; message?: string; token?: string; usuario?: { id: string }; debeCambiar?: boolean; data?: DemoData }
         } catch {
           body = null
         }
-        const despertando = !body || response.status === 502 || response.status === 503 || response.status === 504
-        if (despertando) {
+        if (!body || response.status === 502 || response.status === 503 || response.status === 504) {
           aviso = 'El servidor está despertando. Espera un momento y vuelve a intentar.'
           await new Promise((resolve) => window.setTimeout(resolve, 2500))
           continue
