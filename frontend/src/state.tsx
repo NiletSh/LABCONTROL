@@ -79,7 +79,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       setStatus('ready')
       return
     }
-    for (let intento = 0; intento < 12; intento += 1) {
+    for (let intento = 0; intento < 24; intento += 1) {
       try {
         const response = await fetch(rutaApi('/api/bootstrap'), { headers: { Authorization: `Bearer ${leerToken()}` } })
         if (response.status === 401) {
@@ -100,7 +100,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
         setStatus('ready')
         return
       } catch {
-        await new Promise((resolve) => window.setTimeout(resolve, 500))
+        await new Promise((resolve) => window.setTimeout(resolve, 2000))
       }
     }
     setApiOnline(false)
@@ -117,26 +117,44 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   const usuarioNombre = usuario?.nombre ?? ''
 
   const entrar = useCallback(async (correo: string, clave: string, recordar = false) => {
-    try {
-      const response = await fetch(rutaApi('/api/sesion/entrar'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ correo, clave }),
-      })
-      const body = await response.json() as { ok: boolean; message?: string; token?: string; usuario?: { id: string }; debeCambiar?: boolean; data?: DemoData }
-      if (!response.ok || !body.token || !body.usuario || !body.data) {
-        return { ok: false as const, message: body.message ?? 'No se pudo iniciar sesión.' }
+    const limite = Date.now() + 50000
+    let aviso = 'No hay conexión con el servidor.'
+    while (Date.now() < limite) {
+      try {
+        const response = await fetch(rutaApi('/api/sesion/entrar'), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ correo, clave }),
+        })
+        const texto = await response.text()
+        let body: { ok?: boolean; message?: string; token?: string; usuario?: { id: string }; debeCambiar?: boolean; data?: DemoData } | null = null
+        try {
+          body = JSON.parse(texto) as typeof body
+        } catch {
+          body = null
+        }
+        const despertando = !body || response.status === 502 || response.status === 503 || response.status === 504
+        if (despertando) {
+          aviso = 'El servidor está despertando. Espera un momento y vuelve a intentar.'
+          await new Promise((resolve) => window.setTimeout(resolve, 2500))
+          continue
+        }
+        if (!response.ok || !body.token || !body.usuario || !body.data) {
+          return { ok: false as const, message: body.message ?? 'No se pudo iniciar sesión.' }
+        }
+        guardarToken(body.token, recordar)
+        setUsuarioId(body.usuario.id)
+        setDebeCambiarClave(Boolean(body.debeCambiar))
+        setData(body.data)
+        setApiOnline(true)
+        setStatus('ready')
+        return { ok: true as const }
+      } catch {
+        aviso = 'El servidor está despertando. Espera un momento y vuelve a intentar.'
+        await new Promise((resolve) => window.setTimeout(resolve, 2500))
       }
-      guardarToken(body.token, recordar)
-      setUsuarioId(body.usuario.id)
-      setDebeCambiarClave(Boolean(body.debeCambiar))
-      setData(body.data)
-      setApiOnline(true)
-      setStatus('ready')
-      return { ok: true as const }
-    } catch {
-      return { ok: false as const, message: 'No hay conexión con el servidor.' }
     }
+    return { ok: false as const, message: aviso }
   }, [])
 
   const cerrarSesion = useCallback(() => {
