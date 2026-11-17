@@ -4,8 +4,11 @@ import type { DemoData } from '@shared/types'
 import type { Revision } from '@shared/validate'
 import { leerToken } from './sesion'
 
+const API_NUBE = 'https://labcontrol-kvpg.onrender.com'
+
 export function rutaApi(ruta: string) {
-  const base = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '')
+  const publicada = import.meta.env.PROD ? API_NUBE : ''
+  const base = (import.meta.env.VITE_API_URL || publicada).replace(/\/$/, '')
   return `${base}${ruta}`
 }
 

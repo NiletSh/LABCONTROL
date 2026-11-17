@@ -105,7 +105,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     }
     setApiOnline(false)
     setStatus('error')
-    setError('No se pudo cargar la información. Inicia el proyecto con npm run dev para levantar la interfaz y la API.')
+    setError('No se pudo cargar la información desde el servidor.')
   }, [])
 
   useEffect(() => {
