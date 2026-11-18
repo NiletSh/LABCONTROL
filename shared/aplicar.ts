@@ -28,6 +28,9 @@ export function aplicarOperacion(data: DemoData, tipo: string, datos: Record<str
     case 'alumno':
       guardarAlumno(data, datos, idDe(datos, ids))
       break
+    case 'alumnos.carga':
+      cargarAlumnos(data, datos)
+      break
     case 'ingreso':
       guardarIngreso(data, datos, ids)
       break
@@ -182,6 +185,17 @@ function guardarAlumno(data: DemoData, datos: Record<string, unknown>, id: strin
   const index = data.alumnos.findIndex((alumno) => alumno.id === id)
   if (index >= 0) data.alumnos[index] = record
   else data.alumnos.unshift(record)
+}
+
+function cargarAlumnos(data: DemoData, datos: Record<string, unknown>) {
+  const filas = Array.isArray(datos.filas) ? datos.filas : []
+  for (const fila of filas) {
+    if (!fila || typeof fila !== 'object') continue
+    const item = fila as Record<string, unknown>
+    const matricula = texto(item.matricula).toUpperCase()
+    const previo = data.alumnos.find((alumno) => alumno.matricula.toUpperCase() === matricula)
+    guardarAlumno(data, item, previo?.id || texto(item.id))
+  }
 }
 
 function guardarIngreso(data: DemoData, datos: Record<string, unknown>, ids: string[]) {

@@ -1,5 +1,7 @@
 import { useState } from 'react'
-import { Eye, Pencil, Plus } from 'lucide-react'
+import { Eye, FileUp, Pencil, Plus } from 'lucide-react'
+import { leerCsvAlumnos } from '@shared/csv-alumnos'
+import type { AlumnoCarga } from '@shared/csv-alumnos'
 import { GRUPOS, SEMESTRES, nombreTurno } from '@shared/academico'
 import type { Alumno, EstadoAlumno, TurnoId } from '@shared/types'
 import { DataTable } from '../../components/DataTable'
@@ -20,6 +22,8 @@ export function AlumnosPage() {
   const [actual, setActual] = useState<Alumno | null>(null)
   const [form, setForm] = useState(VACIO)
   const [errores, setErrores] = useState<Record<string, string>>({})
+  const [carga, setCarga] = useState<{ filas: AlumnoCarga[]; errores: { linea: number; message: string }[] } | null>(null)
+  const [avisoCarga, setAvisoCarga] = useState('')
   const editar = puede('alumnos.editar')
 
   const filas = data.alumnos.filter((alumno) => {
@@ -73,12 +77,73 @@ export function AlumnosPage() {
     setModo(null)
   }
 
+  const leerArchivo = async (archivo: File | undefined) => {
+    setAvisoCarga('')
+    if (!archivo) return
+    const texto = await archivo.text()
+    const hoy = new Date()
+    const fecha = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}-${String(hoy.getDate()).padStart(2, '0')}`
+    const leido = leerCsvAlumnos(texto, fecha, () => nuevoId('alu'))
+    const filas = leido.filas.map((fila) => {
+      const previo = data.alumnos.find((alumno) => alumno.matricula.toUpperCase() === fila.matricula)
+      return previo ? { ...fila, id: previo.id } : fila
+    })
+    setCarga({ filas, errores: leido.errores })
+  }
+
+  const confirmarCarga = async () => {
+    if (!carga?.filas.length) return
+    const resultado = await guardar({
+      tipo: 'alumnos.carga',
+      datos: { filas: carga.filas },
+      accion: `Cargó ${carga.filas.length} alumnos desde un archivo.`,
+      ids: carga.filas.map((fila) => fila.id),
+      aplicar: (draft) => {
+        for (const fila of carga.filas) {
+          const record: Alumno = {
+            id: fila.id,
+            matricula: fila.matricula,
+            nombre: fila.nombre,
+            plantel: fila.plantel || undefined,
+            semestre: fila.semestre,
+            grupo: fila.grupo,
+            turnoId: fila.turnoId,
+            estado: fila.estado,
+          }
+          const previo = draft.alumnos.findIndex((alumno) => alumno.matricula.toUpperCase() === fila.matricula || alumno.id === fila.id)
+          if (previo >= 0) draft.alumnos[previo] = record
+          else draft.alumnos.unshift(record)
+        }
+      },
+    })
+    if (!resultado.ok) {
+      setAvisoCarga(resultado.message)
+      return
+    }
+    setCarga(null)
+  }
+
+  const descargarPlantilla = () => {
+    const csv = 'matricula,nombre,plantel,semestre,grupo,turno,estado\n'
+    const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }))
+    const enlace = document.createElement('a')
+    enlace.href = url
+    enlace.download = 'alumnos.csv'
+    enlace.click()
+    URL.revokeObjectURL(url)
+  }
+
   return (
     <section className="page">
       <PageHeader
         title="Alumnos"
         description="Consulta la matrícula, el semestre, el grupo y el turno. El alta y la edición quedan reservadas al administrador."
-        actions={editar ? <Button type="button" onClick={() => abrir('crear')}><Plus size={18} /> Agregar alumno</Button> : null}
+        actions={editar ? (
+          <>
+            <Button type="button" variant="secondary" onClick={() => { setAvisoCarga(''); setCarga({ filas: [], errores: [] }) }}><FileUp size={18} /> Cargar CSV</Button>
+            <Button type="button" onClick={() => abrir('crear')}><Plus size={18} /> Agregar alumno</Button>
+          </>
+        ) : null}
       />
       <div className="filters">
         <Field label="Buscar">
@@ -165,6 +230,36 @@ export function AlumnosPage() {
               </select>
             </Field>
           </form>
+        </Modal>
+      ) : null}
+      {carga ? (
+        <Modal
+          title="Cargar alumnos"
+          onClose={() => setCarga(null)}
+          footer={(
+            <>
+              <Button type="button" variant="secondary" onClick={() => setCarga(null)}>Cancelar</Button>
+              <Button type="button" onClick={() => { void confirmarCarga() }} disabled={!carga.filas.length}>Guardar {carga.filas.length || ''}</Button>
+            </>
+          )}
+        >
+          <div className="stack">
+            <p className="hint">En Excel elige Guardar como CSV. La primera fila lleva matrícula, nombre, plantel, semestre, grupo, turno y estado. Si el semestre va vacío, se calcula con el año del número de control. Una matrícula que ya existe se actualiza.</p>
+            <div className="row-actions">
+              <Button type="button" variant="secondary" onClick={descargarPlantilla}>Descargar plantilla</Button>
+              <label className="btn btn-secondary">
+                Elegir archivo
+                <input className="sr-only" type="file" accept=".csv,text/csv" onChange={(event) => { void leerArchivo(event.target.files?.[0]) }} />
+              </label>
+            </div>
+            {avisoCarga ? <p className="hint">{avisoCarga}</p> : null}
+            {carga.errores.length ? (
+              <ul className="hint">
+                {carga.errores.slice(0, 8).map((error) => <li key={`${error.linea}-${error.message}`}>Línea {error.linea}: {error.message}</li>)}
+              </ul>
+            ) : null}
+            {carga.filas.length ? <p>{carga.filas.length} alumnos listos. {carga.filas.filter((fila) => data.alumnos.some((alumno) => alumno.matricula.toUpperCase() === fila.matricula)).length} ya estaban registrados y se van a actualizar.</p> : null}
+          </div>
         </Modal>
       ) : null}
     </section>

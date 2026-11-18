@@ -49,6 +49,8 @@ export function revisar(tipo: string, datos: unknown, data: DemoData): Revision 
   switch (tipo) {
     case 'alumno':
       return revisarAlumno(input, data, texto(input.id))
+    case 'alumnos.carga':
+      return revisarCargaAlumnos(input, data)
     case 'ingreso':
       return revisarIngreso(input, data)
     case 'ingreso.prueba':
@@ -109,6 +111,23 @@ function revisarAlumno(input: Record<string, unknown>, data: DemoData, ignoreId:
     errors.push({ field: 'matricula', message: 'Esa matrícula ya está registrada.' })
   }
   return errors.length ? fallo(errors) : { ok: true, message: MENSAJE_OK }
+}
+
+function revisarCargaAlumnos(input: Record<string, unknown>, data: DemoData): Revision {
+  const filas = Array.isArray(input.filas) ? input.filas : []
+  if (!filas.length) return fallo([{ field: 'archivo', message: 'El archivo no tiene alumnos.' }])
+  if (filas.length > 2000) return fallo([{ field: 'archivo', message: 'El archivo acepta hasta 2000 alumnos por carga.' }])
+  const errors: FieldError[] = []
+  const vistas = new Set<string>()
+  filas.forEach((fila, indice) => {
+    const item = registro(fila)
+    const matricula = texto(item.matricula).toUpperCase()
+    if (vistas.has(matricula)) errors.push({ field: 'matricula', message: `La matrícula ${matricula} está repetida en el archivo.` })
+    vistas.add(matricula)
+    const revision = revisarAlumno(item, data, texto(item.id))
+    if (!revision.ok) errors.push({ field: 'archivo', message: `Fila ${indice + 2}: ${revision.message}` })
+  })
+  return errors.length ? fallo(errors.slice(0, 8)) : { ok: true, message: `${filas.length} alumnos listos para guardar.` }
 }
 
 function revisarIngreso(input: Record<string, unknown>, data: DemoData): Revision {

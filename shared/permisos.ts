@@ -15,6 +15,7 @@ const ENCARGADO = new Set([
 
 const OPERACION: Record<string, string> = {
   alumno: 'alumnos.editar',
+  'alumnos.carga': 'alumnos.editar',
   ingreso: 'escaneo',
   'ingreso.prueba': 'escaneo',
   maestro: 'maestros',
