@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import { KeyRound, Mail, Pencil, Plus } from 'lucide-react'
 import type { EstadoPersona, Rol, Usuario } from '@shared/types'
-import { textoClaveTemporal } from '@shared/mensajes-correo'
 import { avisosDeClave, enviarClavePorCorreo } from '../../api'
 import type { AvisoClave } from '../../api'
 import { Button, Field, FormNote, FotoPerfil, LocalBadge, Modal, PageHeader } from '../../components/ui'
@@ -19,13 +18,6 @@ interface Entrega {
   clave: string
   modo: 'mano' | 'correo'
   enviado: boolean
-  enlaceRechazo?: string
-}
-
-function enlaceGmail(correo: string, nombre: string, clave: string, enlaceRechazo = '') {
-  const asunto = 'LAB CONTROL · Contraseña temporal'
-  const cuerpo = textoClaveTemporal(nombre, correo, clave, enlaceRechazo)
-  return `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(correo)}&su=${encodeURIComponent(asunto)}&body=${encodeURIComponent(cuerpo)}`
 }
 
 export function UsuariosPage() {
@@ -151,7 +143,6 @@ export function UsuariosPage() {
         clave: resultado.body.claveTemporal,
         modo: 'correo',
         enviado: Boolean(resultado.body.enviado),
-        enlaceRechazo: resultado.body.enlaceRechazo,
       })
       avisar(resultado.body.message ?? 'Contraseña generada.', resultado.body.enviado ? 'ok' : 'warn')
     } catch {
@@ -289,10 +280,9 @@ export function UsuariosPage() {
           onClose={() => setEntrega(null)}
           footer={<><Button type="button" variant="secondary" onClick={() => { void copiar(entrega.clave) }}>Copiar</Button><Button type="button" onClick={() => setEntrega(null)}>Ya la entregué</Button></>}
         >
-          {entrega.modo === 'correo' ? <p>{entrega.enviado ? `Ya se envió a ${entrega.correo}.` : `Gmail del servidor aún no está conectado. Abre Gmail para mandársela a ${entrega.correo}.`}</p> : <p>Entrégasela a {entrega.nombre}. Solo se muestra ahora.</p>}
+          {entrega.modo === 'correo' ? <p>{entrega.enviado ? `Ya se envió solo, desde laboratorioscontrol8@gmail.com, a ${entrega.correo}.` : 'No salió solo. No abras Gmail: el servidor tiene que mandarlo.'}</p> : <p>Entrégasela a {entrega.nombre}. Solo se muestra ahora.</p>}
           <p>{entrega.nombre} entra con <strong>{entrega.correo}</strong> y esta contraseña temporal.</p>
           <p className="clave-temporal">{entrega.clave}</p>
-          {entrega.modo === 'correo' && !entrega.enviado ? <p className="row-actions"><a className="btn btn-secondary" href={enlaceGmail(entrega.correo, entrega.nombre, entrega.clave, entrega.enlaceRechazo)} target="_blank" rel="noreferrer">Abrir Gmail</a></p> : null}
           <p className="hint">Al entrar, tendrá que cambiarla por una propia.</p>
         </Modal>
       ) : null}

@@ -181,7 +181,9 @@ export async function enviarTemporal(usuarioId: string, autor: string, correoPed
     nombre: usuario.nombre,
     message: enviado
       ? `Se envió la contraseña a ${destino}.`
-      : 'Gmail todavía no está conectado en el servidor. Ábrelo para enviar el mensaje.',
+      : correoConfigurado()
+        ? 'No se pudo enviar desde laboratorioscontrol8. Revisa la contraseña de aplicación en Render.'
+        : 'Gmail todavía no está conectado en el servidor.',
   }
 }
 

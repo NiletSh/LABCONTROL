@@ -82,7 +82,7 @@ export async function enviarCorreo(destino: string, asunto: string, texto: strin
     secure: puerto === 465,
     auth: {
       user: process.env.SMTP_USER,
-      pass: process.env.SMTP_PASS,
+      pass: (process.env.SMTP_PASS ?? '').replace(/\s/g, ''),
     },
   })
   await transporte.sendMail({
