@@ -68,6 +68,7 @@ export function EstadisticasPage() {
           <p className="hint">Qué tan lleno llegó a estar cada laboratorio, respecto a su capacidad.</p>
           <div className="chart-box">
             <GroupedBars
+              amplia
               labels={serie.labels}
               series={[
                 { name: 'Laboratorio 1', color: '#1D4ED8', values: serie.lab1 },

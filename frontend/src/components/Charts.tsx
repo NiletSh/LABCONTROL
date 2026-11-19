@@ -1,13 +1,15 @@
 export function GroupedBars({
   labels,
   series,
+  amplia = false,
 }: {
   labels: string[]
   series: { name: string; color: string; values: number[] }[]
+  amplia?: boolean
 }) {
   const width = 640
-  const height = 240
-  const pad = { l: 36, r: 8, t: 12, b: 42 }
+  const height = amplia ? 420 : 240
+  const pad = amplia ? { l: 40, r: 12, t: 16, b: 78 } : { l: 36, r: 8, t: 12, b: 42 }
   const innerW = width - pad.l - pad.r
   const innerH = height - pad.t - pad.b
   const groupW = labels.length ? innerW / labels.length : innerW
@@ -44,7 +46,14 @@ export function GroupedBars({
                   </rect>
                 )
               })}
-              <text x={x + groupW / 2} y={height - 16} textAnchor="middle" fontSize="11" fill="#64748B">{label}</text>
+              <text
+                x={x + groupW / 2}
+                y={amplia ? height - 36 : height - 16}
+                textAnchor={amplia ? 'end' : 'middle'}
+                fontSize={amplia ? 13 : 11}
+                fill="#334155"
+                transform={amplia ? `rotate(-32 ${x + groupW / 2} ${height - 36})` : undefined}
+              >{label}</text>
             </g>
           )
         })}
