@@ -98,15 +98,21 @@ export async function avisosDeClave() {
   return listarAvisosClave()
 }
 
-export async function enviarTemporal(usuarioId: string, autor: string) {
+export async function enviarTemporal(usuarioId: string, autor: string, correoPedido?: string) {
   const data = await leer()
   const usuario = data.usuarios.find((item) => item.id === usuarioId)
   if (!usuario || usuario.estado !== 'activo') return { ok: false as const, message: 'Esa cuenta no está activa.' }
+  const destino = (correoPedido || usuario.correo).trim().toLowerCase()
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(destino)) return { ok: false as const, message: 'Escribe un correo válido.' }
+  if (data.usuarios.some((item) => item.correo.toLowerCase() === destino && item.id !== usuario.id)) {
+    return { ok: false as const, message: 'Ese correo ya está registrado.' }
+  }
+  usuario.correo = destino
   const clave = claveTemporal()
   await guardarClave(usuario.id, hashClave(clave), 1)
   await revocar(usuario.id)
   await atenderAvisosClave(usuario.id)
-  await anotar(data, autor, `Generó una contraseña temporal para ${usuario.nombre}.`)
+  await anotar(data, autor, `Envió una contraseña temporal a ${usuario.nombre}.`)
   const texto = [
     `Hola ${usuario.nombre}.`,
     '',
@@ -114,14 +120,14 @@ export async function enviarTemporal(usuarioId: string, autor: string) {
     '',
     clave,
     '',
-    `Entra en https://laboratorioscontrol.vercel.app/ con ${usuario.correo}.`,
+    `Entra en https://laboratorioscontrol.vercel.app/ con ${destino}.`,
     'Al entrar, el sistema te pedirá que elijas una propia.',
     'Si no pediste este cambio, avisa al administrador.',
   ].join('\n')
   let enviado = false
   if (correoConfigurado()) {
     try {
-      enviado = await enviarCorreo(usuario.correo, 'LAB CONTROL: contraseña temporal', texto)
+      enviado = await enviarCorreo(destino, 'LAB CONTROL: contraseña temporal', texto)
     } catch (error) {
       console.error('No se pudo enviar la contraseña temporal.')
       console.error(error instanceof Error ? error.message : error)
@@ -129,13 +135,14 @@ export async function enviarTemporal(usuarioId: string, autor: string) {
   }
   return {
     ok: true as const,
+    data,
     claveTemporal: clave,
     enviado,
     correoConfigurado: correoConfigurado(),
-    correo: usuario.correo,
+    correo: destino,
     nombre: usuario.nombre,
     message: enviado
-      ? `Se envió la contraseña a ${usuario.correo}.`
+      ? `Se envió la contraseña a ${destino}.`
       : 'Gmail todavía no está conectado en el servidor. Ábrelo para enviar el mensaje.',
   }
 }

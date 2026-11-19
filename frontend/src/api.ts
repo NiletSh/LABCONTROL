@@ -131,15 +131,16 @@ export async function avisosDeClave() {
   return body.avisos ?? []
 }
 
-export async function enviarClavePorCorreo(usuarioId: string) {
+export async function enviarClavePorCorreo(usuarioId: string, correo: string) {
   const response = await fetch(rutaApi('/api/claves/enviar'), {
     method: 'POST',
     headers: cabeceras(),
-    body: JSON.stringify({ usuarioId }),
+    body: JSON.stringify({ usuarioId, correo }),
   })
   const body = await response.json() as {
     ok?: boolean
     message?: string
+    data?: DemoData
     claveTemporal?: string
     enviado?: boolean
     correo?: string

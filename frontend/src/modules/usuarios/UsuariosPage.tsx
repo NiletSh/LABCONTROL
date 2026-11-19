@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { KeyRound, Pencil, Plus } from 'lucide-react'
+import { KeyRound, Mail, Pencil, Plus } from 'lucide-react'
 import type { EstadoPersona, Rol, Usuario } from '@shared/types'
 import { avisosDeClave, enviarClavePorCorreo } from '../../api'
 import type { AvisoClave } from '../../api'
@@ -16,6 +16,7 @@ interface Entrega {
   nombre: string
   correo: string
   clave: string
+  modo: 'mano' | 'correo'
   enviado: boolean
 }
 
@@ -27,13 +28,15 @@ function enlaceGmail(correo: string, nombre: string, clave: string) {
 
 export function UsuariosPage() {
   const data = useData()
-  const { guardar, esCambioLocal, avisar } = useApp()
+  const { guardar, esCambioLocal, avisar, reemplazarDatos } = useApp()
   const [busqueda, setBusqueda] = useState('')
   const [abierto, setAbierto] = useState(false)
   const [actual, setActual] = useState<Usuario | null>(null)
   const [form, setForm] = useState(VACIO)
   const [errores, setErrores] = useState<Record<string, string>>({})
   const [confirmar, setConfirmar] = useState<Usuario | null>(null)
+  const [envio, setEnvio] = useState<Usuario | null>(null)
+  const [correoDestino, setCorreoDestino] = useState('')
   const [entrega, setEntrega] = useState<Entrega | null>(null)
   const [generando, setGenerando] = useState(false)
   const [avisos, setAvisos] = useState<AvisoClave[]>([])
@@ -81,16 +84,45 @@ export function UsuariosPage() {
     }
     setAbierto(false)
     if (resultado.claveTemporal) {
-      setEntrega({ nombre: form.nombre.trim(), correo: form.correo.trim().toLowerCase(), clave: resultado.claveTemporal, enviado: false })
+      setEntrega({ nombre: form.nombre.trim(), correo: form.correo.trim().toLowerCase(), clave: resultado.claveTemporal, modo: 'mano', enviado: false })
     }
+  }
+
+  const abrirEnvio = (usuario: Usuario) => {
+    setCorreoDestino(usuario.correo)
+    setEnvio(usuario)
+  }
+
+  const generarEnMano = async (usuario: Usuario) => {
+    setGenerando(true)
+    const resultado = await guardar({
+      tipo: 'usuario',
+      datos: {
+        id: usuario.id,
+        nombre: usuario.nombre,
+        correo: usuario.correo,
+        rol: usuario.rol,
+        estado: usuario.estado,
+        generarTemporal: true,
+      },
+      accion: `Generó una contraseña temporal para ${usuario.nombre}.`,
+      ids: [usuario.id],
+      aplicar: () => undefined,
+    })
+    setGenerando(false)
+    setConfirmar(null)
+    if (!resultado.ok || !resultado.claveTemporal) {
+      avisar(resultado.ok ? 'No se pudo generar la contraseña.' : resultado.message, 'danger')
+      return
+    }
+    setEntrega({ nombre: usuario.nombre, correo: usuario.correo, clave: resultado.claveTemporal, modo: 'mano', enviado: false })
   }
 
   const generarTemporal = async (usuario: Usuario) => {
     setGenerando(true)
     try {
-      const resultado = await enviarClavePorCorreo(usuario.id)
+      const resultado = await enviarClavePorCorreo(usuario.id, correoDestino)
       setGenerando(false)
-      setConfirmar(null)
       if (resultado.status === 401) {
         avisar('La sesión expiró.', 'danger')
         return
@@ -99,11 +131,14 @@ export function UsuariosPage() {
         avisar(resultado.body.message ?? 'No se pudo generar la contraseña.', 'danger')
         return
       }
+      if (resultado.body.data) reemplazarDatos(resultado.body.data)
+      setEnvio(null)
       setAvisos((lista) => lista.filter((aviso) => aviso.usuarioId !== usuario.id))
       setEntrega({
         nombre: resultado.body.nombre ?? usuario.nombre,
-        correo: resultado.body.correo ?? usuario.correo,
+        correo: resultado.body.correo ?? correoDestino.trim().toLowerCase(),
         clave: resultado.body.claveTemporal,
+        modo: 'correo',
         enviado: Boolean(resultado.body.enviado),
       })
       avisar(resultado.body.message ?? 'Contraseña generada.', resultado.body.enviado ? 'ok' : 'warn')
@@ -126,7 +161,7 @@ export function UsuariosPage() {
     <section className="page">
       <PageHeader
         title="Usuarios y permisos"
-        description="Desde aquí decides quién puede entrar. Si alguien olvidó su contraseña, pulsa Enviar por correo: se genera una temporal y se manda a su Gmail. Al entrar, tendrá que elegir la suya."
+        description="Si la persona está contigo, genera la contraseña temporal y entrégasela. Si pidió ayuda por correo, pulsa Enviar por correo: se manda sola a la dirección que escribas."
         actions={<Button type="button" onClick={() => abrir()}><Plus size={18} /> Agregar usuario</Button>}
       />
       {avisos.length ? (
@@ -139,8 +174,8 @@ export function UsuariosPage() {
                 <span>{aviso.correo}</span>
                 <Button type="button" onClick={() => {
                   const usuario = data.usuarios.find((item) => item.id === aviso.usuarioId)
-                  if (usuario) setConfirmar(usuario)
-                }}><KeyRound size={16} /> Enviar por correo</Button>
+                  if (usuario) abrirEnvio(usuario)
+                }}><Mail size={16} /> Enviar por correo</Button>
               </li>
             ))}
           </ul>
@@ -170,7 +205,8 @@ export function UsuariosPage() {
               </dl>
               <div className="row-actions">
                 <Button type="button" variant="secondary" onClick={() => abrir(usuario)}><Pencil size={16} /> Editar</Button>
-                <Button type="button" variant="secondary" onClick={() => setConfirmar(usuario)}><KeyRound size={16} /> Enviar por correo</Button>
+                <Button type="button" variant="secondary" onClick={() => setConfirmar(usuario)}><KeyRound size={16} /> Contraseña temporal</Button>
+                <Button type="button" variant="secondary" onClick={() => abrirEnvio(usuario)}><Mail size={16} /> Enviar por correo</Button>
               </div>
             </article>
           ))}
@@ -203,23 +239,35 @@ export function UsuariosPage() {
       ) : null}
       {confirmar ? (
         <Modal
-          title="Enviar contraseña temporal"
+          title="Contraseña temporal"
           onClose={() => setConfirmar(null)}
-          footer={<><Button type="button" variant="secondary" onClick={() => setConfirmar(null)}>Cancelar</Button><Button type="button" disabled={generando} onClick={() => { void generarTemporal(confirmar) }}>{generando ? 'Enviando…' : 'Enviar por correo'}</Button></>}
+          footer={<><Button type="button" variant="secondary" onClick={() => setConfirmar(null)}>Cancelar</Button><Button type="button" disabled={generando} onClick={() => { void generarEnMano(confirmar) }}>{generando ? 'Generando…' : 'Generar'}</Button></>}
         >
-          <p>La contraseña actual de {confirmar.nombre} dejará de servir. Se genera una temporal y se manda a {confirmar.correo}. Al entrar, tendrá que elegir otra.</p>
+          <p>La contraseña actual de {confirmar.nombre} dejará de servir. Se muestra aquí para que se la entregues. Al entrar, tendrá que elegir otra.</p>
+        </Modal>
+      ) : null}
+      {envio ? (
+        <Modal
+          title="Enviar por correo"
+          onClose={() => setEnvio(null)}
+          footer={<><Button type="button" variant="secondary" onClick={() => setEnvio(null)}>Cancelar</Button><Button type="button" disabled={generando} onClick={() => { void generarTemporal(envio) }}>{generando ? 'Enviando…' : 'Enviar por correo'}</Button></>}
+        >
+          <p>La contraseña actual de {envio.nombre} dejará de servir. Se genera una temporal y se envía a este correo. Si lo cambias, con ese correo entrará. Al entrar, tendrá que elegir otra.</p>
+          <Field label="Correo de la persona">
+            <input type="email" value={correoDestino} onChange={(event) => setCorreoDestino(event.target.value)} />
+          </Field>
         </Modal>
       ) : null}
       {entrega ? (
         <Modal
-          title="Entrégale esta contraseña"
+          title={entrega.modo === 'correo' ? 'Contraseña enviada' : 'Entrégale esta contraseña'}
           onClose={() => setEntrega(null)}
           footer={<><Button type="button" variant="secondary" onClick={() => { void copiar(entrega.clave) }}>Copiar</Button><Button type="button" onClick={() => setEntrega(null)}>Ya la entregué</Button></>}
         >
-          <p>{entrega.enviado ? `Ya se envió a ${entrega.correo}.` : `Gmail del servidor aún no está conectado. Abre Gmail para mandársela a ${entrega.correo}.`}</p>
-          <p>{entrega.nombre} entra con <strong>{entrega.correo}</strong> y esta contraseña temporal. Solo se muestra ahora.</p>
+          {entrega.modo === 'correo' ? <p>{entrega.enviado ? `Ya se envió a ${entrega.correo}.` : `Gmail del servidor aún no está conectado. Abre Gmail para mandársela a ${entrega.correo}.`}</p> : <p>Entrégasela a {entrega.nombre}. Solo se muestra ahora.</p>}
+          <p>{entrega.nombre} entra con <strong>{entrega.correo}</strong> y esta contraseña temporal.</p>
           <p className="clave-temporal">{entrega.clave}</p>
-          {entrega.enviado ? null : <p className="row-actions"><a className="btn btn-secondary" href={enlaceGmail(entrega.correo, entrega.nombre, entrega.clave)} target="_blank" rel="noreferrer">Abrir Gmail</a></p>}
+          {entrega.modo === 'correo' && !entrega.enviado ? <p className="row-actions"><a className="btn btn-secondary" href={enlaceGmail(entrega.correo, entrega.nombre, entrega.clave)} target="_blank" rel="noreferrer">Abrir Gmail</a></p> : null}
           <p className="hint">Al entrar, tendrá que cambiarla por una propia.</p>
         </Modal>
       ) : null}

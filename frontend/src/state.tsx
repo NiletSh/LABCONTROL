@@ -42,6 +42,7 @@ interface AppContextValue {
   esCambioLocal: (id: string) => boolean
   usuarioNombre: string
   guardar: (opciones: GuardarOpciones) => Promise<Revision & { claveTemporal?: string }>
+  reemplazarDatos: (siguiente: DemoData) => void
   avisar: (message: string, tone?: ToastItem['tone']) => void
 }
 
@@ -173,6 +174,10 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     return { ok: resultado.body.ok, message: resultado.body.message ?? (resultado.body.ok ? 'Clave actualizada.' : 'No se pudo cambiar la clave.') }
   }, [])
 
+  const reemplazarDatos = useCallback((siguiente: DemoData) => {
+    setData(siguiente)
+  }, [])
+
   const guardar = useCallback(async (opciones: GuardarOpciones) => {
     if (!data) return { ok: false as const, errors: [{ field: 'form', message: 'Todavía no hay datos en pantalla.' }], message: 'Sin datos' }
     const local = revisar(opciones.tipo, opciones.datos, data)
@@ -222,8 +227,9 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     esCambioLocal: (id: string) => cambiosLocales.includes(id),
     usuarioNombre,
     guardar,
+    reemplazarDatos,
     avisar,
-  }), [apiOnline, avisar, cambiarClavePropia, cambiosLocales, cerrarSesion, data, debeCambiarClave, dismissToast, entrar, error, guardar, load, role, status, toasts, usuario, usuarioId, usuarioNombre])
+  }), [apiOnline, avisar, cambiarClavePropia, cambiosLocales, cerrarSesion, data, debeCambiarClave, dismissToast, entrar, error, guardar, load, reemplazarDatos, role, status, toasts, usuario, usuarioId, usuarioNombre])
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>
 }

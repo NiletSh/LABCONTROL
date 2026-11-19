@@ -80,8 +80,9 @@ app.post('/api/claves/enviar', async (req, res) => {
   const sesion = await exigir(req, res, 'usuarios')
   if (!sesion) return
   const usuarioId = typeof req.body?.usuarioId === 'string' ? req.body.usuarioId : ''
+  const correo = typeof req.body?.correo === 'string' ? req.body.correo : ''
   try {
-    const resultado = await enviarTemporal(usuarioId, sesion.usuario.nombre)
+    const resultado = await enviarTemporal(usuarioId, sesion.usuario.nombre, correo)
     res.status(resultado.ok ? 200 : 400).json(resultado)
   } catch (error) {
     const message = error instanceof Error ? error.message : 'No se pudo enviar la contraseña.'
