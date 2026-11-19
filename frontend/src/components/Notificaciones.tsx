@@ -12,11 +12,22 @@ interface Aviso {
   detalle: string
   cuando: string
   to: string
+  alerta?: boolean
 }
 
-function avisos(data: DemoData, puede: (permiso: string) => boolean, claves: AvisoClave[]) {
+function avisos(data: DemoData, puede: (permiso: string) => boolean, claves: AvisoClave[], alertas: AvisoClave[]) {
   const lista: Aviso[] = []
   if (puede('usuarios')) {
+    for (const item of alertas) {
+      lista.push({
+        id: item.id,
+        titulo: 'Alerta',
+        detalle: `${item.nombre} dice que no pidió el cambio de contraseña. La temporal quedó cancelada.`,
+        cuando: item.creado ? fechaHora(item.creado) : '',
+        to: '/usuarios',
+        alerta: true,
+      })
+    }
     for (const item of claves) {
       lista.push({
         id: item.id,
@@ -93,15 +104,20 @@ function avisos(data: DemoData, puede: (permiso: string) => boolean, claves: Avi
 export function Notificaciones({ data, puede }: { data: DemoData; puede: (permiso: string) => boolean }) {
   const [abierto, setAbierto] = useState(false)
   const [claves, setClaves] = useState<AvisoClave[]>([])
-  const lista = avisos(data, puede, claves)
+  const [alertas, setAlertas] = useState<AvisoClave[]>([])
+  const lista = avisos(data, puede, claves, alertas)
 
   useEffect(() => {
     if (!puede('usuarios')) return
     let vivo = true
-    void avisosDeClave().then((avisosClave) => {
-      if (vivo) setClaves(avisosClave)
+    void avisosDeClave().then((listas) => {
+      if (!vivo) return
+      setClaves(listas.avisos)
+      setAlertas(listas.alertas)
     }).catch(() => {
-      if (vivo) setClaves([])
+      if (!vivo) return
+      setClaves([])
+      setAlertas([])
     })
     return () => { vivo = false }
   }, [puede, data.bitacora])
@@ -139,7 +155,7 @@ export function Notificaciones({ data, puede }: { data: DemoData; puede: (permis
           {lista.length ? (
             <div className="notify-list">
               {lista.map((aviso) => (
-                <Link key={aviso.id} to={aviso.to} className="notify-item" onClick={() => setAbierto(false)}>
+                <Link key={aviso.id} to={aviso.to} className={aviso.alerta ? 'notify-item is-alert' : 'notify-item'} onClick={() => setAbierto(false)}>
                   <strong>{aviso.titulo}</strong>
                   <span>{aviso.detalle}</span>
                   {aviso.cuando ? <small>{aviso.cuando}</small> : null}

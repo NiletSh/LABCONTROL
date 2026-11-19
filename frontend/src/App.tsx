@@ -3,6 +3,7 @@ import { BrowserRouter, Route, Routes } from 'react-router-dom'
 import { Shell } from './components/Shell'
 import { Button, Mark } from './components/ui'
 import { AccesoPage } from './modules/acceso/AccesoPage'
+import { AlertaPage } from './modules/acceso/AlertaPage'
 import { ClaveObligatoria, LoginPage } from './modules/acceso/LoginPage'
 import { AlumnosPage } from './modules/alumnos/AlumnosPage'
 import { BitacoraPage } from './modules/bitacora/BitacoraPage'
@@ -30,6 +31,7 @@ export function App() {
 
 function Router() {
   const { status, error, reload, sesionActiva, debeCambiarClave } = useApp()
+  if (window.location.pathname.startsWith('/alerta/')) return <AlertaPage />
   if (status !== 'ready') {
     return (
       <div className="boot">

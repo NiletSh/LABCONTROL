@@ -3,8 +3,8 @@ import { puede } from '../../shared/permisos.ts'
 import type { DemoData, Rol, Usuario } from '../../shared/types.ts'
 import { revisar } from '../../shared/validate.ts'
 import { claveTemporal, hashClave, tokenAcceso, verificarClave } from './claves.ts'
-import { correoAvisoAdmin, correoClaveTemporal, correoConfigurado, enviarCorreo } from './correo.ts'
-import { atenderAvisosClave, borrarAcceso, claveTidb, crearAcceso, crearAvisoClave, guardarClave, guardarTidb, leerTidb, listarAvisosClave, revocarTidb, usaTidb, usuarioDeToken } from './tidb.ts'
+import { correoAlertaAdmin, correoAvisoAdmin, correoClaveTemporal, correoConfigurado, enviarCorreo } from './correo.ts'
+import { atenderAlertasAdmin, atenderAvisosClave, borrarAcceso, claveTidb, crearAcceso, crearAlertaAdmin, crearAvisoClave, guardarClave, guardarRechazoClave, guardarTidb, leerTidb, listarAlertasAdmin, listarAvisosClave, revocarTidb, tomarRechazoClave, usaTidb, usuarioDeToken } from './tidb.ts'
 
 export interface SesionActiva {
   token: string
@@ -48,16 +48,36 @@ export async function sesionDe(token: string): Promise<SesionActiva | null> {
   return { token, usuario, rol: usuario.rol, debeCambiar: clave?.debe_cambiar === 1 }
 }
 
+const fallos = new Map<string, { veces: number; hasta: number }>()
+
+function entradaLimitada(correo: string) {
+  const actual = fallos.get(correo)
+  return Boolean(actual && actual.hasta > Date.now() && actual.veces >= 8)
+}
+
+function anotarFallo(correo: string) {
+  const actual = fallos.get(correo)
+  const vigente = actual && actual.hasta > Date.now() ? actual.veces : 0
+  fallos.set(correo, { veces: vigente + 1, hasta: Date.now() + 15 * 60 * 1000 })
+}
+
 export async function entrar(correo: string, clave: string) {
+  const normalizado = correo.trim().toLowerCase()
+  if (entradaLimitada(normalizado)) {
+    return { ok: false as const, message: 'Demasiados intentos. Espera unos minutos.' }
+  }
   const data = await leer()
-  const usuario = data.usuarios.find((item) => item.correo.toLowerCase() === correo.trim().toLowerCase())
+  const usuario = data.usuarios.find((item) => item.correo.toLowerCase() === normalizado)
   if (!usuario || usuario.estado !== 'activo') {
+    anotarFallo(normalizado)
     return { ok: false as const, message: 'Correo o clave incorrectos, o la cuenta está inactiva.' }
   }
   const guardada = await claveDe(usuario.id)
   if (!guardada || !verificarClave(clave, guardada.hash)) {
+    anotarFallo(normalizado)
     return { ok: false as const, message: 'Correo o clave incorrectos, o la cuenta está inactiva.' }
   }
+  fallos.delete(normalizado)
   const token = tokenAcceso()
   await crearAcceso(token, usuario.id)
   await anotar(data, usuario.nombre, 'Inició sesión.')
@@ -95,7 +115,30 @@ export async function pedirRecuperacion(correo: string) {
 }
 
 export async function avisosDeClave() {
-  return listarAvisosClave()
+  return { avisos: await listarAvisosClave(), alertas: await listarAlertasAdmin() }
+}
+
+export async function rechazarClave(token: string) {
+  if (!/^[a-f0-9]{64}$/.test(token)) return { ok: false as const, message: 'Este aviso ya no está vigente.' }
+  const usuarioId = await tomarRechazoClave(token)
+  if (!usuarioId) return { ok: false as const, message: 'Este aviso ya no está vigente.' }
+  const data = await leer()
+  const usuario = data.usuarios.find((item) => item.id === usuarioId)
+  if (!usuario) return { ok: false as const, message: 'Este aviso ya no está vigente.' }
+  await guardarClave(usuario.id, hashClave(claveTemporal()), 1)
+  await revocar(usuario.id)
+  await crearAlertaAdmin(usuario.id, usuario.nombre, usuario.correo)
+  await anotar(data, usuario.nombre, 'Avisó que no pidió el cambio de contraseña. La temporal quedó cancelada.')
+  const mensaje = correoAlertaAdmin(usuario.nombre, usuario.correo)
+  for (const admin of data.usuarios.filter((item) => item.rol === 'administrador' && item.estado === 'activo')) {
+    try {
+      await enviarCorreo(admin.correo, mensaje.asunto, mensaje.texto, mensaje.html)
+    } catch (error) {
+      console.error('No se pudo enviar la alerta al administrador.')
+      console.error(error instanceof Error ? error.message : error)
+    }
+  }
+  return { ok: true as const, message: 'Avisamos al administrador. Esa contraseña temporal ya no sirve.' }
 }
 
 export async function enviarTemporal(usuarioId: string, autor: string, correoPedido?: string) {
@@ -112,8 +155,12 @@ export async function enviarTemporal(usuarioId: string, autor: string, correoPed
   await guardarClave(usuario.id, hashClave(clave), 1)
   await revocar(usuario.id)
   await atenderAvisosClave(usuario.id)
+  await atenderAlertasAdmin(usuario.id)
+  const token = tokenAcceso()
+  await guardarRechazoClave(token, usuario.id)
+  const enlace = `https://laboratorioscontrol.vercel.app/alerta/${token}`
   await anotar(data, autor, `Envió una contraseña temporal a ${usuario.nombre}.`)
-  const mensaje = correoClaveTemporal(usuario.nombre, destino, clave)
+  const mensaje = correoClaveTemporal(usuario.nombre, destino, clave, enlace)
   let enviado = false
   if (correoConfigurado()) {
     try {
@@ -127,6 +174,7 @@ export async function enviarTemporal(usuarioId: string, autor: string, correoPed
     ok: true as const,
     data,
     claveTemporal: clave,
+    enlaceRechazo: enlace,
     enviado,
     correoConfigurado: correoConfigurado(),
     correo: destino,
@@ -202,6 +250,7 @@ export async function operar(sesion: SesionActiva, tipo: string, datos: Record<s
       await guardarClave(id, hash, debeCambiar)
       if (!propia) await revocar(id)
       else if (temporal) await revocar(id, sesion.token)
+      if (temporal) await atenderAlertasAdmin(id)
       if (temporal) claveTemporalTexto = clave
     }
     const usuario = copia.usuarios.find((item) => item.id === id)

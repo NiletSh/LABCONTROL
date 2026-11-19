@@ -126,9 +126,19 @@ export interface AvisoClave {
 
 export async function avisosDeClave() {
   const response = await fetch(rutaApi('/api/claves/avisos'), { headers: cabeceras() })
-  const body = await response.json() as { ok?: boolean; avisos?: AvisoClave[]; message?: string }
+  const body = await response.json() as { ok?: boolean; avisos?: AvisoClave[]; alertas?: AvisoClave[]; message?: string }
   if (!response.ok) throw new Error(body.message ?? 'No se pudieron leer los avisos.')
-  return body.avisos ?? []
+  return { avisos: body.avisos ?? [], alertas: body.alertas ?? [] }
+}
+
+export async function rechazarClave(token: string) {
+  const response = await fetch(rutaApi('/api/claves/rechazar'), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token }),
+  })
+  const body = await response.json() as { ok?: boolean; message?: string }
+  return { status: response.status, body }
 }
 
 export async function enviarClavePorCorreo(usuarioId: string, correo: string) {
@@ -142,6 +152,7 @@ export async function enviarClavePorCorreo(usuarioId: string, correo: string) {
     message?: string
     data?: DemoData
     claveTemporal?: string
+    enlaceRechazo?: string
     enviado?: boolean
     correo?: string
     nombre?: string

@@ -9,7 +9,7 @@ export function saludoMexico(date = new Date()) {
   return 'Buenas noches'
 }
 
-export function textoClaveTemporal(nombre: string, correo: string, clave: string, date = new Date()) {
+export function textoClaveTemporal(nombre: string, correo: string, clave: string, enlaceRechazo = '', date = new Date()) {
   const saludo = saludoMexico(date)
   return [
     `${saludo}, ${nombre}.`,
@@ -23,10 +23,20 @@ export function textoClaveTemporal(nombre: string, correo: string, clave: string
     '',
     'Al entrar, el sistema te pedirá que elijas una contraseña propia. La temporal solo sirve para ese primer acceso.',
     '',
-    'Si tú no pediste este cambio, no uses la contraseña y avisa al administrador.',
+    enlaceRechazo
+      ? `Si tú no pediste este cambio, avisa aquí: ${enlaceRechazo}`
+      : 'Si tú no pediste este cambio, no uses la contraseña y avisa al administrador.',
     '',
     'LAB CONTROL',
     'Administración de laboratorios',
+  ].join('\n')
+}
+
+export function textoAlertaAdmin(nombre: string, correo: string) {
+  return [
+    `ALERTA. ${nombre} dice que no pidió el cambio de contraseña.`,
+    `Cuenta: ${correo}`,
+    'La contraseña temporal quedó cancelada.',
   ].join('\n')
 }
 

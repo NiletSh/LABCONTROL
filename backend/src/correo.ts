@@ -1,5 +1,5 @@
 import nodemailer from 'nodemailer'
-import { saludoMexico, textoAvisoAdmin, textoClaveTemporal } from '../../shared/mensajes-correo.ts'
+import { saludoMexico, textoAlertaAdmin, textoAvisoAdmin, textoClaveTemporal } from '../../shared/mensajes-correo.ts'
 
 const SITIO = 'https://laboratorioscontrol.vercel.app/'
 
@@ -31,9 +31,12 @@ function carta(cuerpo: string) {
 </html>`
 }
 
-export function correoClaveTemporal(nombre: string, correo: string, clave: string) {
+export function correoClaveTemporal(nombre: string, correo: string, clave: string, enlaceRechazo = '') {
   const saludo = saludoMexico()
-  const texto = textoClaveTemporal(nombre, correo, clave)
+  const texto = textoClaveTemporal(nombre, correo, clave, enlaceRechazo)
+  const rechazo = enlaceRechazo
+    ? `<p style="margin:18px 0 0;font-size:14px;line-height:1.5;">Si tú no pediste este cambio, <a href="${escapar(enlaceRechazo)}">avisa al administrador</a>. La contraseña temporal quedará cancelada.</p>`
+    : ''
   const html = carta(`
     <p style="margin:0 0 12px;font-size:22px;font-weight:700;color:#071833;">${escapar(saludo)}, ${escapar(nombre)}.</p>
     <p style="margin:0 0 18px;font-size:16px;line-height:1.5;">El administrador te envía una contraseña temporal para entrar al sistema de los laboratorios.</p>
@@ -41,9 +44,20 @@ export function correoClaveTemporal(nombre: string, correo: string, clave: strin
     <p style="margin:0 0 18px;padding:16px;border-radius:12px;background:#eff6ff;text-align:center;font-size:28px;letter-spacing:0.14em;font-weight:800;color:#071833;">${escapar(clave)}</p>
     <p style="margin:0 0 8px;font-size:16px;line-height:1.5;">Entra con <strong>${escapar(correo)}</strong>.</p>
     <p style="margin:0 0 18px;"><a href="${SITIO}" style="display:inline-block;background:#0e2f57;color:#ffffff;text-decoration:none;font-weight:700;padding:12px 18px;border-radius:10px;">Abrir LAB CONTROL</a></p>
-    <p style="margin:0;font-size:15px;line-height:1.5;">Al entrar, el sistema te pedirá que elijas una contraseña propia. Si tú no pediste este cambio, no uses la contraseña y avisa al administrador.</p>
+    <p style="margin:0;font-size:15px;line-height:1.5;">Al entrar, el sistema te pedirá que elijas una contraseña propia.</p>
+    ${rechazo}
   `)
   return { asunto: 'LAB CONTROL · Contraseña temporal', texto, html }
+}
+
+export function correoAlertaAdmin(nombre: string, correo: string) {
+  const texto = textoAlertaAdmin(nombre, correo)
+  const html = carta(`
+    <p style="margin:0 0 12px;display:inline-block;background:#b91c1c;color:#ffffff;font-size:12px;font-weight:800;letter-spacing:0.12em;padding:6px 10px;border-radius:999px;">ALERTA</p>
+    <p style="margin:0 0 8px;font-size:20px;font-weight:700;color:#071833;">${escapar(nombre)} dice que no pidió el cambio de contraseña.</p>
+    <p style="margin:0;font-size:15px;line-height:1.5;">Cuenta: <strong>${escapar(correo)}</strong>. La contraseña temporal quedó cancelada.</p>
+  `)
+  return { asunto: 'ALERTA · LAB CONTROL', texto, html }
 }
 
 export function correoAvisoAdmin(admin: string, nombre: string, correo: string) {

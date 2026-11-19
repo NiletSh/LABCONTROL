@@ -6,7 +6,7 @@ import type { FormatoInforme } from '../../shared/informes.ts'
 import { leerSolicitudInstitucional, redactarInstitucional, TIPOS_INSTITUCIONALES } from '../../shared/institucional.ts'
 import { permisoDeOperacion, puede } from '../../shared/permisos.ts'
 import { relojMexico } from '../../shared/reloj.ts'
-import { avisosDeClave, cambiarClave, cerrar, entrar, enviarTemporal, leerDatos, operar, pedirRecuperacion, sesionDe } from './almacen.ts'
+import { avisosDeClave, cambiarClave, cerrar, entrar, enviarTemporal, leerDatos, operar, pedirRecuperacion, rechazarClave, sesionDe } from './almacen.ts'
 import { prepararBase, usaTidb } from './tidb.ts'
 import { construirControlExcel } from './control-excel.ts'
 import { exportarDocumento, exportarInforme, leerLogo, nombreArchivo, tipoContenido } from './documentos.ts'
@@ -73,7 +73,19 @@ app.post('/api/sesion/olvido', async (req, res) => {
 app.get('/api/claves/avisos', async (req, res) => {
   const sesion = await exigir(req, res, 'usuarios')
   if (!sesion) return
-  res.json({ ok: true, avisos: await avisosDeClave() })
+  const listas = await avisosDeClave()
+  res.json({ ok: true, ...listas })
+})
+
+app.post('/api/claves/rechazar', async (req, res) => {
+  const token = typeof req.body?.token === 'string' ? req.body.token : ''
+  try {
+    const resultado = await rechazarClave(token)
+    res.status(resultado.ok ? 200 : 400).json(resultado)
+  } catch (error) {
+    console.error(error)
+    res.status(400).json({ ok: false, message: 'No se pudo registrar el aviso.' })
+  }
 })
 
 app.post('/api/claves/enviar', async (req, res) => {

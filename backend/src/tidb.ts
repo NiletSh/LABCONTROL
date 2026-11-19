@@ -1,5 +1,5 @@
 import mysql from 'mysql2/promise'
-import type { Pool, PoolConnection, RowDataPacket } from 'mysql2/promise'
+import type { Pool, PoolConnection, ResultSetHeader, RowDataPacket } from 'mysql2/promise'
 import { esExpedienteDePrueba, semestrePorControl } from '../../shared/academico.ts'
 import { ESCENARIO_FECHA, getDemo, HORA_REFERENCIA } from '../../shared/demo.ts'
 import type { DemoData, Incidencia, Maestro } from '../../shared/types.ts'
@@ -400,7 +400,10 @@ export async function borrarAcceso(token: string) {
 
 export async function usuarioDeToken(token: string) {
   await preparar()
-  const [filas] = await conexion().query<RowDataPacket[]>('SELECT usuario_id FROM acceso WHERE token = ?', [token])
+  const [filas] = await conexion().query<RowDataPacket[]>(
+    'SELECT usuario_id FROM acceso WHERE token = ? AND creado > DATE_SUB(UTC_TIMESTAMP(), INTERVAL 16 HOUR)',
+    [token],
+  )
   return filas[0] ? texto(filas[0].usuario_id) : undefined
 }
 
@@ -435,6 +438,54 @@ export async function listarAvisosClave() {
     correo: texto(fila.correo),
     creado: texto(fila.creado).replace(' ', 'T').slice(0, 19),
   }))
+}
+
+export async function guardarRechazoClave(token: string, usuarioId: string) {
+  await preparar()
+  await conexion().query('UPDATE rechazo_clave SET usado = 1 WHERE usuario_id = ? AND usado = 0', [usuarioId])
+  await conexion().query(
+    'INSERT INTO rechazo_clave (token, usuario_id, creado, usado) VALUES (?, ?, NOW(), 0)',
+    [token, usuarioId],
+  )
+}
+
+export async function tomarRechazoClave(token: string) {
+  await preparar()
+  const db = conexion()
+  const [resultado] = await db.query<ResultSetHeader>(
+    'UPDATE rechazo_clave SET usado = 1 WHERE token = ? AND usado = 0',
+    [token],
+  )
+  if (!resultado.affectedRows) return ''
+  const [filas] = await db.query<RowDataPacket[]>('SELECT usuario_id FROM rechazo_clave WHERE token = ?', [token])
+  return filas[0] ? texto(filas[0].usuario_id) : ''
+}
+
+export async function crearAlertaAdmin(usuarioId: string, nombre: string, correo: string) {
+  await preparar()
+  await conexion().query(
+    'INSERT INTO alerta_admin (id, usuario_id, nombre, correo, creado, atendida) VALUES (?, ?, ?, ?, NOW(), 0)',
+    [`alt-${Date.now()}`, usuarioId, nombre, correo],
+  )
+}
+
+export async function listarAlertasAdmin() {
+  await preparar()
+  const [filas] = await conexion().query<RowDataPacket[]>(
+    'SELECT id, usuario_id, nombre, correo, creado FROM alerta_admin WHERE atendida = 0 ORDER BY creado DESC LIMIT 20',
+  )
+  return filas.map((fila) => ({
+    id: texto(fila.id),
+    usuarioId: texto(fila.usuario_id),
+    nombre: texto(fila.nombre),
+    correo: texto(fila.correo),
+    creado: texto(fila.creado).replace(' ', 'T').slice(0, 19),
+  }))
+}
+
+export async function atenderAlertasAdmin(usuarioId: string) {
+  await preparar()
+  await conexion().query('UPDATE alerta_admin SET atendida = 1 WHERE usuario_id = ? AND atendida = 0', [usuarioId])
 }
 
 export async function atenderAvisosClave(usuarioId: string) {
@@ -656,5 +707,19 @@ CREATE TABLE IF NOT EXISTS aviso_clave (
   usuario_id VARCHAR(40) NOT NULL,
   creado DATETIME NOT NULL,
   atendido TINYINT(1) NOT NULL DEFAULT 0
+);
+CREATE TABLE IF NOT EXISTS rechazo_clave (
+  token VARCHAR(80) PRIMARY KEY,
+  usuario_id VARCHAR(40) NOT NULL,
+  creado DATETIME NOT NULL,
+  usado TINYINT(1) NOT NULL DEFAULT 0
+);
+CREATE TABLE IF NOT EXISTS alerta_admin (
+  id VARCHAR(40) PRIMARY KEY,
+  usuario_id VARCHAR(40) NOT NULL,
+  nombre VARCHAR(160) NOT NULL,
+  correo VARCHAR(180) NOT NULL,
+  creado DATETIME NOT NULL,
+  atendida TINYINT(1) NOT NULL DEFAULT 0
 );
 `
