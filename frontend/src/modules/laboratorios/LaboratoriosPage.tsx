@@ -1,4 +1,6 @@
 import { useState } from 'react'
+import { relojMexico } from '@shared/reloj'
+import { sesionEnCurso } from '@shared/schedule'
 import type { EstadoLaboratorio, Laboratorio } from '@shared/types'
 import { Button, Field, FormNote, Modal, PageHeader } from '../../components/ui'
 import { mapaErrores } from '../../forms'
@@ -52,7 +54,8 @@ export function LaboratoriosPage() {
       <PageHeader title="Laboratorios" description="Dos aulas de cómputo. La cantidad de equipos se calcula con el inventario." />
       <div className="lab-grid">
         {data.laboratorios.map((laboratorio) => {
-          const sesion = data.sesiones.find((item) => item.laboratorioId === laboratorio.id && item.estado === 'activa')
+          const reloj = relojMexico()
+          const sesion = data.sesiones.find((item) => item.laboratorioId === laboratorio.id && sesionEnCurso(item, reloj.fecha, reloj.hora))
           const materia = data.materias.find((item) => item.id === sesion?.materiaId)
           const pendientes = data.incidencias.filter((item) => item.laboratorioId === laboratorio.id && item.estado !== 'resuelta').length
           return (
@@ -69,7 +72,7 @@ export function LaboratoriosPage() {
                 <div><strong>{laboratorio.cantidadEquipos}</strong><span>Equipos</span></div>
                 <div><strong>{pendientes}</strong><span>Incidencias abiertas</span></div>
               </div>
-              {sesion ? <p>Sesión en curso: {materia?.nombre} · {sesion.semestre}° {sesion.grupo} <SesionEstado estado="activa" /></p> : <p className="hint">Sin sesión activa en el escenario.</p>}
+              {sesion ? <p>Sesión en curso: {materia?.nombre} · {sesion.semestre}° {sesion.grupo} · {sesion.horaInicio}–{sesion.horaFin} <SesionEstado estado="activa" /></p> : <p className="hint">Sin sesión en curso.</p>}
               {editar ? <Button type="button" variant="secondary" onClick={() => abrir(laboratorio)}>Editar información</Button> : null}
             </article>
           )

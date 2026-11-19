@@ -1,3 +1,4 @@
+import { relojMexico } from '@shared/reloj'
 import type { DemoData } from '@shared/types'
 import { fechaDia } from './format'
 
@@ -31,7 +32,7 @@ export function picoPorcentaje(data: DemoData, fecha: string, laboratorioId: str
 }
 
 export function serieDiaria(data: DemoData, dias: number) {
-  const fin = parse(data.meta.escenarioFecha)
+  const fin = parse(relojMexico().fecha)
   const labels: string[] = []
   const lab1: number[] = []
   const lab2: number[] = []
@@ -45,7 +46,7 @@ export function serieDiaria(data: DemoData, dias: number) {
 }
 
 export function serieSemanal(data: DemoData, semanas: number) {
-  const fin = parse(data.meta.escenarioFecha)
+  const fin = parse(relojMexico().fecha)
   const mondayOffset = fin.getDay() === 0 ? -6 : 1 - fin.getDay()
   const lunesActual = addDays(fin, mondayOffset)
   const labels: string[] = []
@@ -72,7 +73,7 @@ export function serieSemanal(data: DemoData, semanas: number) {
 }
 
 export function serieMensual(data: DemoData) {
-  const fin = parse(data.meta.escenarioFecha)
+  const fin = parse(relojMexico().fecha)
   const labels: string[] = []
   const lab1: number[] = []
   const lab2: number[] = []
@@ -101,8 +102,8 @@ export function serieMensual(data: DemoData) {
   return { labels, lab1, lab2 }
 }
 
-export function rangoDe(data: DemoData, periodo: 'dia' | 'semana' | 'mes') {
-  const hasta = data.meta.escenarioFecha
+export function rangoDe(periodo: 'dia' | 'semana' | 'mes') {
+  const hasta = relojMexico().fecha
   const fin = parse(hasta)
   if (periodo === 'dia') return { desde: iso(addDays(fin, -9)), hasta }
   if (periodo === 'semana') return { desde: iso(addDays(fin, -41)), hasta }

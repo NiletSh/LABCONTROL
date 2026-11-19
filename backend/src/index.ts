@@ -5,6 +5,7 @@ import { construirInforme, hechosLaboratorio, leerFiltros, leerMembrete, vistaDe
 import type { FormatoInforme } from '../../shared/informes.ts'
 import { leerSolicitudInstitucional, redactarInstitucional, TIPOS_INSTITUCIONALES } from '../../shared/institucional.ts'
 import { permisoDeOperacion, puede } from '../../shared/permisos.ts'
+import { relojMexico } from '../../shared/reloj.ts'
 import { cambiarClave, cerrar, entrar, leerDatos, operar, sesionDe } from './almacen.ts'
 import { prepararBase, usaTidb } from './tidb.ts'
 import { construirControlExcel } from './control-excel.ts'
@@ -116,7 +117,7 @@ app.post('/api/informes/institucional', async (req, res) => {
     const demo = await leerDatos()
     const titulo = TIPOS_INSTITUCIONALES.find((item) => item.id === solicitud.tipo)?.nombre ?? 'Informe de laboratorio'
     const documento = redactarInstitucional(
-      hechosLaboratorio(demo, leerFiltros(req.body?.filtros, demo.meta.escenarioFecha)),
+      hechosLaboratorio(demo, leerFiltros(req.body?.filtros, relojMexico().fecha)),
       solicitud,
       leerMembrete(req.body?.membrete, titulo),
     )
@@ -132,7 +133,7 @@ app.post('/api/informes/vista', async (req, res) => {
     if (!(await exigir(req, res, 'reportes'))) return
     const demo = await leerDatos()
     const id = typeof req.body?.id === 'string' ? req.body.id : ''
-    const informe = construirInforme(demo, id, leerFiltros(req.body?.filtros, demo.meta.escenarioFecha))
+    const informe = construirInforme(demo, id, leerFiltros(req.body?.filtros, relojMexico().fecha))
     res.json(vistaDe(informe))
   } catch (error) {
     const message = error instanceof Error ? error.message : 'No se pudo preparar el reporte.'
@@ -153,7 +154,7 @@ app.post('/api/informes/archivo', async (req, res) => {
     if (solicitud) {
       const titulo = TIPOS_INSTITUCIONALES.find((item) => item.id === solicitud.tipo)?.nombre ?? 'Informe de laboratorio'
       const membrete = leerMembrete(req.body?.membrete, titulo)
-      const filtros = leerFiltros(req.body?.filtros, demo.meta.escenarioFecha)
+      const filtros = leerFiltros(req.body?.filtros, relojMexico().fecha)
       const hechos = hechosLaboratorio(demo, filtros)
       const creado = new Date().toLocaleString('es-MX')
       if (formato === 'xlsx') {
@@ -172,7 +173,7 @@ app.post('/api/informes/archivo', async (req, res) => {
       return
     }
     const id = typeof req.body?.id === 'string' ? req.body.id : ''
-    const informe = construirInforme(demo, id, leerFiltros(req.body?.filtros, demo.meta.escenarioFecha))
+    const informe = construirInforme(demo, id, leerFiltros(req.body?.filtros, relojMexico().fecha))
     if (informe.filas.length > 8000) throw new Error('El reporte supera los 8000 registros. Reduce el periodo.')
     const membrete = leerMembrete(req.body?.membrete, informe.nombre)
     const logo = formato === 'pdf' || formato === 'docx' ? leerLogo(req.body?.logo) : null

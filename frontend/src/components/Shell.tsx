@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
-import { CalendarClock, Info, LayoutDashboard, LogOut, Menu, ScanLine, X } from 'lucide-react'
+import { CalendarClock, LayoutDashboard, LogOut, Menu, ScanLine, X } from 'lucide-react'
 import { NAV } from '../nav'
 import { can, rolLabel } from '../permissions'
 import { useApp } from '../state'
@@ -64,7 +64,6 @@ export function Shell({ children }: { children: ReactNode }) {
     return () => window.removeEventListener('beforeinstallprompt', onPrompt)
   }, [])
 
-  const escenario = data?.meta.escenarioTexto ?? 'escenario de demostración'
   const tono = TONO[location.pathname] ?? 'tone-indigo'
   const cuenta = data?.usuarios.find((item) => item.id === usuarioId)
   const grupos = NAV.map((group) => ({
@@ -154,10 +153,6 @@ export function Shell({ children }: { children: ReactNode }) {
           </div>
           </div>
         </header>
-        <div className="demo-banner">
-          <Info size={18} />
-          <span>{data?.meta.persistido ? `Escenario del ${escenario}. Los registros se guardan en el servidor y se ven desde cualquier dispositivo conectado a esta API.` : `Datos de demostración del ${escenario}.`}</span>
-        </div>
         {installEvent ? (
           <div className="install-hint">
             <span>Puedes instalar LAB CONTROL en la pantalla de inicio.</span>

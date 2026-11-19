@@ -1,18 +1,32 @@
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { AlertTriangle, CalendarClock, GraduationCap, Monitor, ScanLine, Users } from 'lucide-react'
+import { sesionEnCurso } from '@shared/schedule'
+import { relojMexico } from '@shared/reloj'
 import { PageHeader } from '../../components/ui'
 import { GroupedBars } from '../../components/Charts'
-import { fechaCorta, fechaHora, horaDe } from '../../format'
+import { fechaCorta, fechaHora, fechaLarga, horaDe } from '../../format'
 import { IncidenciaEstado } from '../../labels'
 import { serieDiaria } from '../../metrics'
 import { useApp, useData } from '../../state'
 
+function useReloj() {
+  const [marca, setMarca] = useState(() => relojMexico())
+  useEffect(() => {
+    const id = window.setInterval(() => setMarca(relojMexico()), 15000)
+    return () => window.clearInterval(id)
+  }, [])
+  return marca
+}
+
 export function DashboardPage() {
   const data = useData()
   const { puede } = useApp()
-  const hoy = data.meta.escenarioFecha
+  const reloj = useReloj()
+  const hoy = reloj.fecha
+  const dia = fechaLarga(hoy)
   const ingresosHoy = data.ingresos.filter((ingreso) => ingreso.fecha === hoy)
-  const activas = data.sesiones.filter((sesion) => sesion.estado === 'activa')
+  const activas = data.sesiones.filter((sesion) => sesionEnCurso(sesion, hoy, reloj.hora))
   const pendientes = data.incidencias.filter((incidencia) => incidencia.estado === 'pendiente')
   const libres = data.laboratorios.filter((lab) => lab.estado === 'operativo')
   const dentro = new Set(ingresosHoy.filter((ingreso) => activas.some((sesion) => sesion.id === ingreso.sesionId)).map((ingreso) => ingreso.alumnoId)).size
@@ -27,7 +41,7 @@ export function DashboardPage() {
     <section className="page">
       <PageHeader
         title="Dashboard"
-        description={`${data.meta.escenarioTexto}. Los indicadores usan ese escenario, no el reloj del dispositivo.`}
+        description={`${dia.charAt(0).toUpperCase()}${dia.slice(1)}, ${reloj.hora}.`}
       />
       <div className="stats">
         <article className="stat-card tone-indigo">
@@ -58,7 +72,7 @@ export function DashboardPage() {
         <article className="stat-card tone-violet">
           <div className="stat-top"><span>Sesiones activas</span><span className="stat-icon"><CalendarClock size={18} /></span></div>
           <strong>{activas.length}</strong>
-          <small>En curso en el escenario</small>
+          <small>En curso a las {reloj.hora}</small>
         </article>
         <article className="stat-card tone-rose">
           <div className="stat-top"><span>Incidencias pendientes</span><span className="stat-icon"><AlertTriangle size={18} /></span></div>

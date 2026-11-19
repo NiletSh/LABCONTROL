@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { ChevronLeft, ChevronRight, Plus } from 'lucide-react'
 import { etiquetaGrupo } from '@shared/academico'
 import type { EstadoSesion, Sesion, TurnoId } from '@shared/types'
+import { relojMexico } from '@shared/reloj'
 import { diasDeSemana, inicioDeSemana, sumarDias, tituloMes } from '@shared/schedule'
 import { Button, Field, FormNote, LabPicker, Modal, PageHeader, Segments } from '../../components/ui'
 import { fechaCorta, fechaLarga } from '../../format'
@@ -52,7 +53,7 @@ export function SesionesPage() {
   const { guardar, esCambioLocal, puede } = useApp()
   const configuraTurnos = puede('usuarios')
   const estrecho = useEstrecho()
-  const hoy = data.meta.escenarioFecha
+  const hoy = relojMexico().fecha
   const [vista, setVista] = useState<Vista>('dia')
   const [fecha, setFecha] = useState(hoy)
   const [turnoId, setTurnoId] = useState<TurnoId>('matutino')

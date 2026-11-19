@@ -144,6 +144,14 @@ export function bloquesDeJornada(inicio: string, fin: string, ocupaciones: Ocupa
  * Sesión a la que debe ligarse una lectura real.
  * El lector futuro llama esta función con la hora del escaneo; no registra nada por sí misma.
  */
+/** La sesión está en curso si es de este día, no está cerrada y el reloj cae dentro de su horario. */
+export function sesionEnCurso(sesion: Sesion, fecha: string, hora: string) {
+  if (sesion.estado === 'cancelada' || sesion.estado === 'finalizada') return false
+  if (sesion.fecha !== fecha || !horaValida(hora) || !horaValida(sesion.horaInicio) || !horaValida(sesion.horaFin)) return false
+  const minuto = toMinutes(hora)
+  return minuto >= toMinutes(sesion.horaInicio) && minuto < toMinutes(sesion.horaFin)
+}
+
 export function sesionDestinoDeIngreso(sesiones: Sesion[], laboratorioId: string, fecha: string, hora: string) {
   if (!fechaValida(fecha) || !horaValida(hora)) return null
   const minuto = toMinutes(hora)

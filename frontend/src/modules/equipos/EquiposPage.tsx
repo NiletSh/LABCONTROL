@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react'
 import { ImagePlus, Plus } from 'lucide-react'
+import { relojMexico } from '@shared/reloj'
 import type { Equipo, EstadoEquipo } from '@shared/types'
 import { DataTable } from '../../components/DataTable'
 import { Button, Field, FormNote, LocalBadge, Modal, PageHeader } from '../../components/ui'
@@ -22,7 +23,7 @@ export function EquiposPage() {
   const [form, setForm] = useState({ id: 'LAB1-PC', laboratorioId: 'lab-1', estado: 'disponible' as EstadoEquipo, descripcion: '', foto: '' })
   const archivoNuevo = useRef<HTMLInputElement>(null)
   const archivoDetalle = useRef<HTMLInputElement>(null)
-  const [mantenimiento, setMantenimiento] = useState({ fecha: data.meta.escenarioFecha, descripcion: '' })
+  const [mantenimiento, setMantenimiento] = useState({ fecha: relojMexico().fecha, descripcion: '' })
   const [errores, setErrores] = useState<Record<string, string>>({})
 
   const filas = data.equipos.filter((equipo) => {

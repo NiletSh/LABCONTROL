@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Plus } from 'lucide-react'
 import { etiquetaGrupo, nombreTurno } from '@shared/academico'
+import { relojMexico } from '@shared/reloj'
 import type { Reservacion } from '@shared/types'
 import { DataTable } from '../../components/DataTable'
 import { Button, Field, FormNote, LabPicker, LocalBadge, Modal, PageHeader } from '../../components/ui'
@@ -18,7 +19,7 @@ export function ReservacionesPage() {
   const [abierto, setAbierto] = useState(false)
   const [rechazo, setRechazo] = useState<Reservacion | null>(null)
   const [motivo, setMotivo] = useState('')
-  const [form, setForm] = useState({ ...BASE, fecha: data.meta.escenarioFecha })
+  const [form, setForm] = useState({ ...BASE, fecha: relojMexico().fecha })
   const [errores, setErrores] = useState<Record<string, string>>({})
 
   const filas = data.reservaciones.filter((item) => estado === 'todos' || item.estado === estado)

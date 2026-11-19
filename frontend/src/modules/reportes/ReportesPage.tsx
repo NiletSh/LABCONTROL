@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Download, FileSpreadsheet, FileText, Printer } from 'lucide-react'
 import { CATEGORIAS, CATALOGO, filtrosIniciales, tableroReportes } from '@shared/informes'
+import { relojMexico } from '@shared/reloj'
 import type { CategoriaInforme, FiltrosInforme, FormatoInforme, Membrete, VistaInforme } from '@shared/informes'
 import { EXTENSIONES, rangoSugerido, TIPOS_INSTITUCIONALES } from '@shared/institucional'
 import type { DocumentoInstitucional, ExtensionInforme, TipoInstitucional } from '@shared/institucional'
@@ -9,18 +10,12 @@ import { MeterList } from '../../components/Charts'
 import { Button, Field, PageHeader, Segments } from '../../components/ui'
 import { useApp, useData } from '../../state'
 
-function hoyIso() {
-  const date = new Date()
-  const p = (value: number) => String(value).padStart(2, '0')
-  return `${date.getFullYear()}-${p(date.getMonth() + 1)}-${p(date.getDate())}`
-}
-
 export function ReportesPage() {
   const data = useData()
   const { avisar } = useApp()
   const [categoria, setCategoria] = useState<CategoriaInforme>('asistencia')
   const [reporteId, setReporteId] = useState('asistencia-diaria')
-  const [filtros, setFiltros] = useState<FiltrosInforme>(() => filtrosIniciales(data.meta.escenarioFecha))
+  const [filtros, setFiltros] = useState<FiltrosInforme>(() => filtrosIniciales(relojMexico().fecha))
   const [modo, setModo] = useState<'datos' | 'direccion'>('datos')
   const [tipoInst, setTipoInst] = useState<TipoInstitucional>('mensual')
   const [extension, setExtension] = useState<ExtensionInforme>('detallado')
@@ -30,7 +25,7 @@ export function ReportesPage() {
   const [reviso, setReviso] = useState('')
   const [autorizo, setAutorizo] = useState('')
   const [titulo, setTitulo] = useState('')
-  const [fecha, setFecha] = useState(hoyIso)
+  const [fecha, setFecha] = useState(() => relojMexico().fecha)
   const [logo, setLogo] = useState('')
   const [vista, setVista] = useState<VistaInforme | null>(null)
   const [documento, setDocumento] = useState<DocumentoInstitucional | null>(null)
@@ -65,13 +60,13 @@ export function ReportesPage() {
     const next = id === 'direccion' ? 'direccion' : 'datos'
     setModo(next)
     if (next === 'direccion') {
-      const rango = rangoSugerido(tipoInst, filtros.desde || data.meta.escenarioFecha)
+      const rango = rangoSugerido(tipoInst, filtros.desde || relojMexico().fecha)
       if (rango) setFiltros({ ...filtros, ...rango })
     }
   }
   const elegirTipo = (tipo: TipoInstitucional) => {
     setTipoInst(tipo)
-    const rango = rangoSugerido(tipo, data.meta.escenarioFecha)
+    const rango = rangoSugerido(tipo, relojMexico().fecha)
     if (rango) setFiltros({ ...filtros, ...rango })
   }
 
@@ -101,7 +96,7 @@ export function ReportesPage() {
           ? formato === 'xlsx'
             ? 'Se descargó el control en Excel. El resumen se calcula con las otras hojas.'
             : 'Se descargó el informe. Revisa los nombres y deja las firmas para imprimir.'
-          : 'Se descargó el archivo. La primera sección indica que sale del escenario del servidor.', 'ok')
+          : 'Se descargó el archivo.', 'ok')
     } catch (error) {
       avisar(error instanceof Error ? error.message : 'No se pudo generar el archivo.', 'danger')
     } finally {
@@ -287,7 +282,7 @@ export function ReportesPage() {
         </Field>
       </div>
       <p className="hint no-print">{modo === 'direccion'
-        ? 'Al elegir mensual, trimestral, semestral o anual, las fechas cubren ese calendario a partir de la fecha del escenario. El semestre es enero–junio o julio–diciembre. Puedes corregir Desde y Hasta antes de generar.'
+        ? 'Al elegir mensual, trimestral, semestral o anual, las fechas cubren ese calendario a partir de hoy. El semestre es enero–junio o julio–diciembre. Puedes corregir Desde y Hasta antes de generar.'
         : reporte.descripcion}</p>
       <div className="row-actions no-print">
         <Button type="button" onClick={() => { void preparar() }} disabled={ocupado !== null}><FileText size={18} /> Ver vista previa</Button>

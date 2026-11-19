@@ -2,7 +2,7 @@ import { nombreTurno } from './academico.ts'
 import { desdeMinutos, fechaIso, inicioDeSemana, rangosSeCruzan, sumarDias, toMinutes } from './schedule.ts'
 import type { DemoData, EstadoEquipo, EstadoIncidencia, EstadoSesion, TurnoId } from './types.ts'
 
-export const NOTA_FUENTE = 'No hay una base de datos institucional conectada. Las cifras salen del escenario cargado en el servidor de LAB CONTROL y no forman un informe oficial de la preparatoria.'
+export const NOTA_FUENTE = 'Las cifras salen de los registros guardados en LAB CONTROL.'
 export const AVISO_ALUMNOS = 'Incluye matrícula y nombre solo para el control de asistencia del laboratorio. Quien descarga el archivo es responsable de no difundirlo.'
 
 const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre']
@@ -188,7 +188,7 @@ export const CATALOGO: Spec[] = [
   spec('comparacion-labs', 'utilizacion', 'Comparación de laboratorios', 'Ingresos, alumnos y sesiones de Laboratorio 1 y Laboratorio 2.', false, 'comparacion'),
   spec('inventario', 'equipos', 'Inventario de computadoras', 'Lista actual de equipos de ambos laboratorios.', false, 'equipos', 'fecha', false, false),
   spec('equipos-disponibles', 'equipos', 'Equipos disponibles', 'Equipos que hoy están disponibles.', false, 'equipos', 'fecha', false, false, '', '', 'disponible'),
-  spec('equipos-ocupados', 'equipos', 'Equipos ocupados', 'Equipos marcados como ocupados en el escenario.', false, 'equipos', 'fecha', false, false, '', '', 'ocupada'),
+  spec('equipos-ocupados', 'equipos', 'Equipos ocupados', 'Equipos marcados como ocupados en este momento.', false, 'equipos', 'fecha', false, false, '', '', 'ocupada'),
   spec('equipos-mantenimiento', 'equipos', 'Equipos en mantenimiento', 'Equipos que están en mantenimiento.', false, 'equipos', 'fecha', false, false, '', '', 'mantenimiento'),
   spec('equipos-fuera', 'equipos', 'Equipos fuera de servicio', 'Equipos que no se pueden usar.', false, 'equipos', 'fecha', false, false, '', '', 'fuera_de_servicio'),
   spec('historial-reparaciones', 'equipos', 'Historial de reparaciones', 'Mantenimientos registrados, con responsable y descripción.', false, 'reparaciones', 'fecha', false, true),
@@ -393,7 +393,7 @@ export function construirInforme(data: DemoData, id: string, filtros: FiltrosInf
     filas: cuerpo.filas,
     totales: cuerpo.totales,
     resumen: cuerpo.resumen,
-    periodo: definicion.usaPeriodo ? `Del ${fechaLegible(filtros.desde)} al ${fechaLegible(filtros.hasta)}` : 'Estado actual de los equipos en el escenario',
+    periodo: definicion.usaPeriodo ? `Del ${fechaLegible(filtros.desde)} al ${fechaLegible(filtros.hasta)}` : 'Estado actual de los equipos',
     filtros: consulta.filtros,
     notaFuente: NOTA_FUENTE,
     avisoPrivacidad: definicion.incluyeAlumnos ? AVISO_ALUMNOS : '',
@@ -1237,7 +1237,7 @@ function estadisticas(consulta: Consulta): Cuerpo {
   return cuerpo([
     { key: 'indicador', header: 'Indicador', ancho: 36 },
     { key: 'valor', header: 'Valor', ancho: 36 },
-  ], filas, [], [], 'Los equipos reflejan el estado actual del escenario, no un historial por fecha.')
+  ], filas, [], [], 'Los equipos reflejan el estado actual, no un historial por fecha.')
 }
 
 function laboratoriosDe(consulta: Consulta) {

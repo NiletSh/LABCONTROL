@@ -8,7 +8,7 @@ import { useData } from '../../state'
 export function EstadisticasPage() {
   const data = useData()
   const [periodo, setPeriodo] = useState<'dia' | 'semana' | 'mes'>('dia')
-  const rango = rangoDe(data, periodo)
+  const rango = rangoDe(periodo)
   const serie = periodo === 'semana' ? serieSemanal(data, 6) : periodo === 'mes' ? serieMensual(data) : serieDiaria(data, 10)
   const resumen = useMemo(() => {
     const ingresos = ingresosEnRango(data, rango.desde, rango.hasta)
@@ -45,7 +45,7 @@ export function EstadisticasPage() {
     <section className="page">
       <PageHeader
         title="Estadísticas"
-        description={`Periodo del ${fechaCorta(rango.desde)} al ${fechaCorta(rango.hasta)}, calculado sobre el escenario de demostración.`}
+        description={`Periodo del ${fechaCorta(rango.desde)} al ${fechaCorta(rango.hasta)}.`}
       />
       <Segments
         value={periodo}
