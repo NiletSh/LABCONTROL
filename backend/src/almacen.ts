@@ -3,7 +3,7 @@ import { puede } from '../../shared/permisos.ts'
 import type { DemoData, Rol, Usuario } from '../../shared/types.ts'
 import { revisar } from '../../shared/validate.ts'
 import { claveTemporal, hashClave, tokenAcceso, verificarClave } from './claves.ts'
-import { correoConfigurado, enviarCorreo } from './correo.ts'
+import { correoAvisoAdmin, correoClaveTemporal, correoConfigurado, enviarCorreo } from './correo.ts'
 import { atenderAvisosClave, borrarAcceso, claveTidb, crearAcceso, crearAvisoClave, guardarClave, guardarTidb, leerTidb, listarAvisosClave, revocarTidb, usaTidb, usuarioDeToken } from './tidb.ts'
 
 export interface SesionActiva {
@@ -82,10 +82,10 @@ export async function pedirRecuperacion(correo: string) {
   const nuevo = await crearAvisoClave(usuario.id)
   if (!nuevo) return { ok: true as const, message: AVISO_OLVIDO }
   await anotar(data, usuario.nombre, 'Pidió una contraseña temporal porque olvidó la suya.')
-  const texto = `${usuario.nombre} (${usuario.correo}) olvidó su contraseña de LAB CONTROL. Entra como administrador, abre Usuarios y pulsa Enviar por correo.`
   for (const admin of data.usuarios.filter((item) => item.rol === 'administrador' && item.estado === 'activo')) {
+    const mensaje = correoAvisoAdmin(admin.nombre, usuario.nombre, usuario.correo)
     try {
-      await enviarCorreo(admin.correo, 'LAB CONTROL: un encargado olvidó su contraseña', texto)
+      await enviarCorreo(admin.correo, mensaje.asunto, mensaje.texto, mensaje.html)
     } catch (error) {
       console.error('No se pudo avisar por correo al administrador.')
       console.error(error instanceof Error ? error.message : error)
@@ -113,21 +113,11 @@ export async function enviarTemporal(usuarioId: string, autor: string, correoPed
   await revocar(usuario.id)
   await atenderAvisosClave(usuario.id)
   await anotar(data, autor, `Envió una contraseña temporal a ${usuario.nombre}.`)
-  const texto = [
-    `Hola ${usuario.nombre}.`,
-    '',
-    'Tu contraseña temporal de LAB CONTROL es:',
-    '',
-    clave,
-    '',
-    `Entra en https://laboratorioscontrol.vercel.app/ con ${destino}.`,
-    'Al entrar, el sistema te pedirá que elijas una propia.',
-    'Si no pediste este cambio, avisa al administrador.',
-  ].join('\n')
+  const mensaje = correoClaveTemporal(usuario.nombre, destino, clave)
   let enviado = false
   if (correoConfigurado()) {
     try {
-      enviado = await enviarCorreo(destino, 'LAB CONTROL: contraseña temporal', texto)
+      enviado = await enviarCorreo(destino, mensaje.asunto, mensaje.texto, mensaje.html)
     } catch (error) {
       console.error('No se pudo enviar la contraseña temporal.')
       console.error(error instanceof Error ? error.message : error)

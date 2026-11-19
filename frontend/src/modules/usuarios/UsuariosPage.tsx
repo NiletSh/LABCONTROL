@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { KeyRound, Mail, Pencil, Plus } from 'lucide-react'
 import type { EstadoPersona, Rol, Usuario } from '@shared/types'
+import { textoClaveTemporal } from '@shared/mensajes-correo'
 import { avisosDeClave, enviarClavePorCorreo } from '../../api'
 import type { AvisoClave } from '../../api'
 import { Button, Field, FormNote, FotoPerfil, LocalBadge, Modal, PageHeader } from '../../components/ui'
@@ -21,8 +22,8 @@ interface Entrega {
 }
 
 function enlaceGmail(correo: string, nombre: string, clave: string) {
-  const asunto = 'LAB CONTROL: contraseña temporal'
-  const cuerpo = `Hola ${nombre}.\n\nTu contraseña temporal de LAB CONTROL es: ${clave}\n\nEntra en https://laboratorioscontrol.vercel.app/ con este correo. Al entrar, elige una propia.`
+  const asunto = 'LAB CONTROL · Contraseña temporal'
+  const cuerpo = textoClaveTemporal(nombre, correo, clave)
   return `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(correo)}&su=${encodeURIComponent(asunto)}&body=${encodeURIComponent(cuerpo)}`
 }
 
@@ -203,10 +204,10 @@ export function UsuariosPage() {
                 <div><dt>Correo</dt><dd>{usuario.correo}</dd></div>
                 <div><dt>Rol</dt><dd>{rolLabel(usuario.rol)}</dd></div>
               </dl>
-              <div className="row-actions">
-                <Button type="button" variant="secondary" onClick={() => abrir(usuario)}><Pencil size={16} /> Editar</Button>
-                <Button type="button" variant="secondary" onClick={() => setConfirmar(usuario)}><KeyRound size={16} /> Contraseña temporal</Button>
-                <Button type="button" variant="secondary" onClick={() => abrirEnvio(usuario)}><Mail size={16} /> Enviar por correo</Button>
+              <div className="person-actions">
+                <button type="button" className="person-action" onClick={() => abrir(usuario)}><Pencil size={18} /> Editar</button>
+                <button type="button" className="person-action" onClick={() => setConfirmar(usuario)}><KeyRound size={18} /> En persona</button>
+                <button type="button" className="person-action is-mail" onClick={() => abrirEnvio(usuario)}><Mail size={18} /> Por correo</button>
               </div>
             </article>
           ))}
