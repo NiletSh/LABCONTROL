@@ -20,8 +20,8 @@ export function GroupedBars({
   }).join('. ')
 
   return (
-    <div>
-      <svg className="chart" viewBox={`0 0 ${width} ${height}`} role="img" aria-label={`Utilización. ${summary}`}>
+    <div className={amplia ? 'chart-fill' : undefined}>
+      <svg className="chart" viewBox={`0 0 ${width} ${height}`} preserveAspectRatio={amplia ? 'none' : 'xMidYMid meet'} role="img" aria-label={`Utilización. ${summary}`}>
         {[0, 50, 100].map((tick) => {
           const y = pad.t + innerH - (tick / 100) * innerH
           return (
