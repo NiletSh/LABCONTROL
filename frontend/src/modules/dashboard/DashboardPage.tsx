@@ -90,7 +90,8 @@ export function DashboardPage() {
           <div className="panel-head">
             <h2>Utilización de los laboratorios</h2>
           </div>
-          <p className="hint">Pico de ocupación de los últimos 7 días, en porcentaje de la capacidad.</p>
+          <p className="hint">Lo más lleno que estuvo cada laboratorio en los últimos 7 días, respecto a su capacidad.</p>
+          <div className="chart-box">
           <GroupedBars
             labels={serie.labels}
             series={[
@@ -98,6 +99,7 @@ export function DashboardPage() {
               { name: 'Laboratorio 2', color: '#38BDF8', values: serie.lab2 },
             ]}
           />
+          </div>
         </article>
         <article className="panel">
           <div className="panel-head">

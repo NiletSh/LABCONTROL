@@ -470,9 +470,13 @@ table.data tbody tr.is-clickable { cursor: pointer; }
 .turno-panel[open] summary { margin-bottom: 8px; }
 
 .chart { width: 100%; height: auto; display: block; }
+.chart-box { max-width: 460px; }
+.chart-box .chart { max-height: 168px; }
+.stats-board { display: grid; grid-template-columns: minmax(0, 460px) minmax(220px, 1fr); gap: 12px; align-items: start; }
+.stats-side { display: grid; gap: 12px; }
 .legend { display: flex; gap: 16px; flex-wrap: wrap; color: var(--muted); font-size: 13px; }
 .legend i { width: 10px; height: 10px; border-radius: 2px; display: inline-block; margin-right: 6px; }
-.meters { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+.meters { list-style: none; margin: 0; padding: 0; display: grid; gap: 7px; }
 .meter-label { display: flex; justify-content: space-between; gap: 8px; font-size: 14px; margin-bottom: 4px; }
 .meter-track { height: 8px; background: #e2e8f0; border-radius: 99px; overflow: hidden; }
 .meter-track span { display: block; height: 100%; background: var(--blue-700); border-radius: 99px; }
@@ -565,7 +569,7 @@ body:has(.login-screen) { overflow: hidden; background: #061426; }
 @media (max-width: 800px) {
   .table-scroll { display: none; }
   .card-list { display: grid; gap: 10px; }
-  .dashboard-grid, .split, .report-board, .lab-grid, .scan-layout, .form-grid, .dl-grid, .doc-firmas, .people-grid { grid-template-columns: 1fr; }
+  .dashboard-grid, .split, .stats-board, .report-board, .lab-grid, .scan-layout, .form-grid, .dl-grid, .doc-firmas, .people-grid { grid-template-columns: 1fr; }
   .quick-actions { grid-template-columns: 1fr; }
   .page-head h1 { font-size: 24px; }
   .modal-root { padding: 16px; }

@@ -1,6 +1,8 @@
 import { useState } from 'react'
-import { Pencil, Plus } from 'lucide-react'
+import { FileUp, Pencil, Plus } from 'lucide-react'
 import { GRUPOS, SEMESTRES, etiquetaGrupo, nombreTurno } from '@shared/academico'
+import { leerCsvMaterias } from '@shared/csv-catalogo'
+import type { MateriaCarga } from '@shared/csv-catalogo'
 import type { Materia, TurnoId } from '@shared/types'
 import { DataTable } from '../../components/DataTable'
 import { Button, Field, FormNote, LocalBadge, Modal, PageHeader } from '../../components/ui'
@@ -26,6 +28,8 @@ export function MateriasPage() {
   const [actual, setActual] = useState<Materia | null>(null)
   const [form, setForm] = useState(VACIO)
   const [errores, setErrores] = useState<Record<string, string>>({})
+  const [carga, setCarga] = useState<{ filas: MateriaCarga[]; errores: { linea: number; message: string }[] } | null>(null)
+  const [avisoCarga, setAvisoCarga] = useState('')
 
   const filas = data.materias.filter((materia) => {
     const maestro = data.maestros.find((item) => item.id === materia.maestroId)?.nombre ?? ''
@@ -88,12 +92,63 @@ export function MateriasPage() {
     setAbierto(false)
   }
 
+  const leerArchivo = async (archivo: File | undefined) => {
+    if (!archivo) return
+    const texto = await archivo.text()
+    const resultado = leerCsvMaterias(texto, data.maestros, () => nuevoId('mat'))
+    resultado.filas.forEach((fila) => {
+      const previo = data.materias.find((materia) => materia.clave === fila.clave && materia.semestre === fila.semestre && materia.grupo === fila.grupo && materia.turnoId === fila.turnoId)
+      if (previo) fila.id = previo.id
+    })
+    setCarga(resultado)
+    setAvisoCarga('')
+  }
+
+  const confirmarCarga = async () => {
+    if (!carga) return
+    const resultado = await guardar({
+      tipo: 'materias.carga',
+      datos: { filas: carga.filas },
+      accion: `Cargó ${carga.filas.length} materias desde un archivo.`,
+      ids: carga.filas.map((fila) => fila.id),
+      aplicar: (draft) => {
+        for (const fila of carga.filas) {
+          const record: Materia = { id: fila.id, clave: fila.clave, nombre: fila.nombre, semestre: fila.semestre, grupo: fila.grupo, turnoId: fila.turnoId, maestroId: fila.maestroId }
+          const index = draft.materias.findIndex((materia) => materia.clave === fila.clave && materia.semestre === fila.semestre && materia.grupo === fila.grupo && materia.turnoId === fila.turnoId)
+          if (index >= 0) draft.materias[index] = record
+          else draft.materias.unshift(record)
+        }
+        sincronizarMaterias(draft.maestros, draft.materias)
+      },
+    })
+    if (!resultado.ok) {
+      setAvisoCarga(resultado.message)
+      return
+    }
+    setCarga(null)
+  }
+
+  const descargarPlantilla = () => {
+    const csv = 'clave,nombre,semestre,grupo,turno,maestro\n'
+    const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }))
+    const enlace = document.createElement('a')
+    enlace.href = url
+    enlace.download = 'materias.csv'
+    enlace.click()
+    URL.revokeObjectURL(url)
+  }
+
   return (
     <section className="page">
       <PageHeader
         title="Materias y grupos"
         description="Cada fila es una materia asignada a un semestre, un grupo, un turno y un maestro. La misma materia puede repetirse en otros grupos."
-        actions={<Button type="button" onClick={() => abrir()}><Plus size={18} /> Agregar materia</Button>}
+        actions={(
+          <>
+            <Button type="button" variant="secondary" onClick={() => { setAvisoCarga(''); setCarga({ filas: [], errores: [] }) }}><FileUp size={18} /> Cargar CSV</Button>
+            <Button type="button" onClick={() => abrir()}><Plus size={18} /> Agregar materia</Button>
+          </>
+        )}
       />
       <div className="filters">
         <Field label="Buscar">
@@ -148,6 +203,36 @@ export function MateriasPage() {
                 {maestrosDelTurno.map((maestro) => <option key={maestro.id} value={maestro.id}>{maestro.nombre}</option>)}
               </select>
             </Field>
+          </div>
+        </Modal>
+      ) : null}
+      {carga ? (
+        <Modal
+          title="Cargar materias y grupos"
+          onClose={() => setCarga(null)}
+          footer={(
+            <>
+              <Button type="button" variant="secondary" onClick={() => setCarga(null)}>Cancelar</Button>
+              <Button type="button" onClick={() => { void confirmarCarga() }} disabled={!carga.filas.length}>Guardar {carga.filas.length || ''}</Button>
+            </>
+          )}
+        >
+          <div className="stack">
+            <p className="hint">En Excel elige Guardar como CSV. La primera fila lleva clave, nombre, semestre, grupo, turno y maestro. En maestro escribe su número EMP-0000. Si esa materia ya está en el mismo grupo y turno, se actualiza.</p>
+            <div className="row-actions">
+              <Button type="button" variant="secondary" onClick={descargarPlantilla}>Descargar plantilla</Button>
+              <label className="btn btn-secondary">
+                Elegir archivo
+                <input className="sr-only" type="file" accept=".csv,text/csv" onChange={(event) => { void leerArchivo(event.target.files?.[0]) }} />
+              </label>
+            </div>
+            {avisoCarga ? <p className="hint">{avisoCarga}</p> : null}
+            {carga.errores.length ? (
+              <ul className="hint">
+                {carga.errores.slice(0, 8).map((error) => <li key={`${error.linea}-${error.message}`}>Línea {error.linea}: {error.message}</li>)}
+              </ul>
+            ) : null}
+            {carga.filas.length ? <p>{carga.filas.length} materias listas.</p> : null}
           </div>
         </Modal>
       ) : null}

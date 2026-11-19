@@ -39,7 +39,7 @@ export function EstadisticasPage() {
   const horas = Array.from({ length: 10 }, (_, index) => {
     const label = `${String(index + 8).padStart(2, '0')}:00`
     return { label, value: resumen.horas.get(label) ?? 0 }
-  })
+  }).filter((item) => item.value > 0)
 
   return (
     <section className="page">
@@ -62,26 +62,30 @@ export function EstadisticasPage() {
         <article className="stat-card"><span>Laboratorio 1</span><strong>{resumen.alumnosLab.get('lab-1')?.size ?? 0}</strong><small>Alumnos distintos</small></article>
         <article className="stat-card"><span>Laboratorio 2</span><strong>{resumen.alumnosLab.get('lab-2')?.size ?? 0}</strong><small>Alumnos distintos</small></article>
       </div>
-      <article className="panel">
-        <div className="panel-head"><h2>Uso de los laboratorios</h2></div>
-        <p className="hint">Promedio del pico de ocupación, en porcentaje de la capacidad.</p>
-        <GroupedBars
-          labels={serie.labels}
-          series={[
-            { name: 'Laboratorio 1', color: '#1D4ED8', values: serie.lab1 },
-            { name: 'Laboratorio 2', color: '#38BDF8', values: serie.lab2 },
-          ]}
-        />
-      </article>
-      <div className="split">
+      <div className="stats-board">
         <article className="panel">
-          <div className="panel-head"><h2>Materias más frecuentes</h2></div>
-          <MeterList items={materias} />
+          <div className="panel-head"><h2>Uso de los laboratorios</h2></div>
+          <p className="hint">Qué tan lleno llegó a estar cada laboratorio, respecto a su capacidad.</p>
+          <div className="chart-box">
+            <GroupedBars
+              labels={serie.labels}
+              series={[
+                { name: 'Laboratorio 1', color: '#1D4ED8', values: serie.lab1 },
+                { name: 'Laboratorio 2', color: '#38BDF8', values: serie.lab2 },
+              ]}
+            />
+          </div>
         </article>
-        <article className="panel">
-          <div className="panel-head"><h2>Horarios de utilización</h2></div>
-          <MeterList items={horas} />
-        </article>
+        <div className="stats-side">
+          <article className="panel">
+            <div className="panel-head"><h2>Materias más frecuentes</h2></div>
+            <MeterList items={materias} />
+          </article>
+          <article className="panel">
+            <div className="panel-head"><h2>Horarios de utilización</h2></div>
+            <MeterList items={horas} />
+          </article>
+        </div>
       </div>
     </section>
   )

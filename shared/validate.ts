@@ -57,8 +57,12 @@ export function revisar(tipo: string, datos: unknown, data: DemoData): Revision 
       return { ok: true, message: MENSAJE_OK }
     case 'maestro':
       return revisarMaestro(input, data, texto(input.id))
+    case 'maestros.carga':
+      return revisarCargaMaestros(input, data)
     case 'materia':
       return revisarMateria(input, data, texto(input.id))
+    case 'materias.carga':
+      return revisarCargaMaterias(input, data)
     case 'sesion':
       return revisarSesion(input, data)
     case 'sesion.estado':
@@ -226,6 +230,46 @@ function revisarMateria(input: Record<string, unknown>, data: DemoData, ignoreId
     errors.push({ field: 'clave', message: 'Esa materia ya está asignada a ese semestre, grupo y turno.' })
   }
   return errors.length ? fallo(errors) : { ok: true, message: MENSAJE_OK }
+}
+
+function revisarCargaMaestros(input: Record<string, unknown>, data: DemoData): Revision {
+  const filas = Array.isArray(input.filas) ? input.filas : []
+  if (!filas.length) return fallo([{ field: 'archivo', message: 'El archivo no tiene maestros.' }])
+  if (filas.length > 2000) return fallo([{ field: 'archivo', message: 'El archivo acepta hasta 2000 maestros por carga.' }])
+  const errors: FieldError[] = []
+  const numeros = new Set<string>()
+  const correos = new Set<string>()
+  filas.forEach((fila, indice) => {
+    const item = registro(fila)
+    const numero = texto(item.numeroEmpleado).toUpperCase()
+    const correo = texto(item.correo).toLowerCase()
+    if (numeros.has(numero)) errors.push({ field: 'archivo', message: `Fila ${indice + 2}: ${numero} está repetido en el archivo.` })
+    if (correos.has(correo)) errors.push({ field: 'archivo', message: `Fila ${indice + 2}: el correo ${correo} está repetido en el archivo.` })
+    numeros.add(numero)
+    correos.add(correo)
+    const previo = data.maestros.find((maestro) => maestro.numeroEmpleado.toUpperCase() === numero)
+    const revision = revisarMaestro(item, data, previo?.id || texto(item.id))
+    if (!revision.ok) errors.push({ field: 'archivo', message: `Fila ${indice + 2}: ${revision.message}` })
+  })
+  return errors.length ? fallo(errors.slice(0, 8)) : { ok: true, message: `${filas.length} maestros listos para guardar.` }
+}
+
+function revisarCargaMaterias(input: Record<string, unknown>, data: DemoData): Revision {
+  const filas = Array.isArray(input.filas) ? input.filas : []
+  if (!filas.length) return fallo([{ field: 'archivo', message: 'El archivo no tiene materias.' }])
+  if (filas.length > 2000) return fallo([{ field: 'archivo', message: 'El archivo acepta hasta 2000 materias por carga.' }])
+  const errors: FieldError[] = []
+  const vistas = new Set<string>()
+  filas.forEach((fila, indice) => {
+    const item = registro(fila)
+    const marca = `${texto(item.clave).toUpperCase()}|${Number(item.semestre)}|${texto(item.grupo).toUpperCase()}|${texto(item.turnoId)}`
+    if (vistas.has(marca)) errors.push({ field: 'archivo', message: `Fila ${indice + 2}: esa materia y grupo están repetidos en el archivo.` })
+    vistas.add(marca)
+    const previo = data.materias.find((materia) => `${materia.clave}|${materia.semestre}|${materia.grupo}|${materia.turnoId}` === marca)
+    const revision = revisarMateria(item, data, previo?.id || texto(item.id))
+    if (!revision.ok) errors.push({ field: 'archivo', message: `Fila ${indice + 2}: ${revision.message}` })
+  })
+  return errors.length ? fallo(errors.slice(0, 8)) : { ok: true, message: `${filas.length} materias listas para guardar.` }
 }
 
 function revisarHorarioBase(input: Record<string, unknown>, data: DemoData) {

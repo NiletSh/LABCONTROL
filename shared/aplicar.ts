@@ -40,8 +40,15 @@ export function aplicarOperacion(data: DemoData, tipo: string, datos: Record<str
     case 'maestro':
       guardarMaestro(data, datos, idDe(datos, ids))
       break
+    case 'maestros.carga':
+      cargarMaestros(data, datos)
+      break
     case 'materia':
       guardarMateria(data, datos, idDe(datos, ids))
+      sincronizarMaterias(data)
+      break
+    case 'materias.carga':
+      cargarMaterias(data, datos)
       sincronizarMaterias(data)
       break
     case 'sesion':
@@ -249,6 +256,28 @@ function guardarMaestro(data: DemoData, datos: Record<string, unknown>, id: stri
   const index = data.maestros.findIndex((maestro) => maestro.id === id)
   if (index >= 0) data.maestros[index] = record
   else data.maestros.unshift(record)
+}
+
+function cargarMaestros(data: DemoData, datos: Record<string, unknown>) {
+  const filas = Array.isArray(datos.filas) ? datos.filas : []
+  for (const fila of filas) {
+    if (!fila || typeof fila !== 'object') continue
+    const item = fila as Record<string, unknown>
+    const numero = texto(item.numeroEmpleado).toUpperCase()
+    const previo = data.maestros.find((maestro) => maestro.numeroEmpleado.toUpperCase() === numero)
+    guardarMaestro(data, item, previo?.id || texto(item.id))
+  }
+}
+
+function cargarMaterias(data: DemoData, datos: Record<string, unknown>) {
+  const filas = Array.isArray(datos.filas) ? datos.filas : []
+  for (const fila of filas) {
+    if (!fila || typeof fila !== 'object') continue
+    const item = fila as Record<string, unknown>
+    const marca = `${texto(item.clave).toUpperCase()}|${Number(item.semestre)}|${texto(item.grupo).toUpperCase()}|${texto(item.turnoId)}`
+    const previo = data.materias.find((materia) => `${materia.clave}|${materia.semestre}|${materia.grupo}|${materia.turnoId}` === marca)
+    guardarMateria(data, item, previo?.id || texto(item.id))
+  }
 }
 
 function guardarMateria(data: DemoData, datos: Record<string, unknown>, id: string) {
