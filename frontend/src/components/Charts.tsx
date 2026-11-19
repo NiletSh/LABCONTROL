@@ -8,8 +8,8 @@ export function GroupedBars({
   amplia?: boolean
 }) {
   const width = 640
-  const height = amplia ? 420 : 240
-  const pad = amplia ? { l: 40, r: 12, t: 16, b: 78 } : { l: 36, r: 8, t: 12, b: 42 }
+  const height = amplia ? 280 : 240
+  const pad = amplia ? { l: 40, r: 12, t: 12, b: 64 } : { l: 36, r: 8, t: 12, b: 42 }
   const innerW = width - pad.l - pad.r
   const innerH = height - pad.t - pad.b
   const groupW = labels.length ? innerW / labels.length : innerW
