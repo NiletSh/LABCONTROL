@@ -280,7 +280,7 @@ export function UsuariosPage() {
           onClose={() => setEntrega(null)}
           footer={<><Button type="button" variant="secondary" onClick={() => { void copiar(entrega.clave) }}>Copiar</Button><Button type="button" onClick={() => setEntrega(null)}>Ya la entregué</Button></>}
         >
-          {entrega.modo === 'correo' ? <p>{entrega.enviado ? `Ya se envió solo, desde laboratorioscontrol8@gmail.com, a ${entrega.correo}.` : 'No salió solo. No abras Gmail: el servidor tiene que mandarlo.'}</p> : <p>Entrégasela a {entrega.nombre}. Solo se muestra ahora.</p>}
+          {entrega.modo === 'correo' ? <p>{entrega.enviado ? `Ya se envió solo, desde laboratorios.control8@gmail.com, a ${entrega.correo}.` : 'No salió solo. No abras Gmail: el servidor tiene que mandarlo.'}</p> : <p>Entrégasela a {entrega.nombre}. Solo se muestra ahora.</p>}
           <p>{entrega.nombre} entra con <strong>{entrega.correo}</strong> y esta contraseña temporal.</p>
           <p className="clave-temporal">{entrega.clave}</p>
           <p className="hint">Al entrar, tendrá que cambiarla por una propia.</p>
