@@ -3,7 +3,8 @@ import { puede } from '../../shared/permisos.ts'
 import type { DemoData, Rol, Usuario } from '../../shared/types.ts'
 import { revisar } from '../../shared/validate.ts'
 import { claveTemporal, hashClave, tokenAcceso, verificarClave } from './claves.ts'
-import { borrarAcceso, claveTidb, crearAcceso, guardarClave, guardarTidb, leerTidb, revocarTidb, usaTidb, usuarioDeToken } from './tidb.ts'
+import { correoConfigurado, enviarCorreo } from './correo.ts'
+import { atenderAvisosClave, borrarAcceso, claveTidb, crearAcceso, crearAvisoClave, guardarClave, guardarTidb, leerTidb, listarAvisosClave, revocarTidb, usaTidb, usuarioDeToken } from './tidb.ts'
 
 export interface SesionActiva {
   token: string
@@ -70,6 +71,73 @@ export async function cerrar(token: string) {
     await anotar(data, sesion.usuario.nombre, 'Cerró sesión.')
   }
   if (token) await borrarAcceso(token)
+}
+
+const AVISO_OLVIDO = 'Si ese correo está registrado, el administrador ya tiene el aviso.'
+
+export async function pedirRecuperacion(correo: string) {
+  const data = await leer()
+  const usuario = data.usuarios.find((item) => item.correo.toLowerCase() === correo.trim().toLowerCase())
+  if (!usuario || usuario.estado !== 'activo') return { ok: true as const, message: AVISO_OLVIDO }
+  const nuevo = await crearAvisoClave(usuario.id)
+  if (!nuevo) return { ok: true as const, message: AVISO_OLVIDO }
+  await anotar(data, usuario.nombre, 'Pidió una contraseña temporal porque olvidó la suya.')
+  const texto = `${usuario.nombre} (${usuario.correo}) olvidó su contraseña de LAB CONTROL. Entra como administrador, abre Usuarios y pulsa Enviar por correo.`
+  for (const admin of data.usuarios.filter((item) => item.rol === 'administrador' && item.estado === 'activo')) {
+    try {
+      await enviarCorreo(admin.correo, 'LAB CONTROL: un encargado olvidó su contraseña', texto)
+    } catch (error) {
+      console.error('No se pudo avisar por correo al administrador.')
+      console.error(error instanceof Error ? error.message : error)
+    }
+  }
+  return { ok: true as const, message: AVISO_OLVIDO }
+}
+
+export async function avisosDeClave() {
+  return listarAvisosClave()
+}
+
+export async function enviarTemporal(usuarioId: string, autor: string) {
+  const data = await leer()
+  const usuario = data.usuarios.find((item) => item.id === usuarioId)
+  if (!usuario || usuario.estado !== 'activo') return { ok: false as const, message: 'Esa cuenta no está activa.' }
+  const clave = claveTemporal()
+  await guardarClave(usuario.id, hashClave(clave), 1)
+  await revocar(usuario.id)
+  await atenderAvisosClave(usuario.id)
+  await anotar(data, autor, `Generó una contraseña temporal para ${usuario.nombre}.`)
+  const texto = [
+    `Hola ${usuario.nombre}.`,
+    '',
+    'Tu contraseña temporal de LAB CONTROL es:',
+    '',
+    clave,
+    '',
+    `Entra en https://laboratorioscontrol.vercel.app/ con ${usuario.correo}.`,
+    'Al entrar, el sistema te pedirá que elijas una propia.',
+    'Si no pediste este cambio, avisa al administrador.',
+  ].join('\n')
+  let enviado = false
+  if (correoConfigurado()) {
+    try {
+      enviado = await enviarCorreo(usuario.correo, 'LAB CONTROL: contraseña temporal', texto)
+    } catch (error) {
+      console.error('No se pudo enviar la contraseña temporal.')
+      console.error(error instanceof Error ? error.message : error)
+    }
+  }
+  return {
+    ok: true as const,
+    claveTemporal: clave,
+    enviado,
+    correoConfigurado: correoConfigurado(),
+    correo: usuario.correo,
+    nombre: usuario.nombre,
+    message: enviado
+      ? `Se envió la contraseña a ${usuario.correo}.`
+      : 'Gmail todavía no está conectado en el servidor. Ábrelo para enviar el mensaje.',
+  }
 }
 
 export async function cambiarClave(usuarioId: string, nueva: string, actual?: string) {

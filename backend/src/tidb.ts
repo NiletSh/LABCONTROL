@@ -404,6 +404,44 @@ export async function usuarioDeToken(token: string) {
   return filas[0] ? texto(filas[0].usuario_id) : undefined
 }
 
+export async function crearAvisoClave(usuarioId: string) {
+  await preparar()
+  const [recientes] = await conexion().query<RowDataPacket[]>(
+    'SELECT id FROM aviso_clave WHERE usuario_id = ? AND atendido = 0 AND creado > DATE_SUB(NOW(), INTERVAL 30 MINUTE) LIMIT 1',
+    [usuarioId],
+  )
+  if (recientes[0]) return false
+  await conexion().query(
+    'INSERT INTO aviso_clave (id, usuario_id, creado, atendido) VALUES (?, ?, NOW(), 0)',
+    [`avc-${Date.now()}`, usuarioId],
+  )
+  return true
+}
+
+export async function listarAvisosClave() {
+  await preparar()
+  const [filas] = await conexion().query<RowDataPacket[]>(
+    `SELECT a.id, a.usuario_id, a.creado, u.nombre, u.correo
+     FROM aviso_clave a
+     JOIN usuario u ON u.id = a.usuario_id
+     WHERE a.atendido = 0
+     ORDER BY a.creado DESC
+     LIMIT 20`,
+  )
+  return filas.map((fila) => ({
+    id: texto(fila.id),
+    usuarioId: texto(fila.usuario_id),
+    nombre: texto(fila.nombre),
+    correo: texto(fila.correo),
+    creado: texto(fila.creado).replace(' ', 'T').slice(0, 19),
+  }))
+}
+
+export async function atenderAvisosClave(usuarioId: string) {
+  await preparar()
+  await conexion().query('UPDATE aviso_clave SET atendido = 1 WHERE usuario_id = ? AND atendido = 0', [usuarioId])
+}
+
 export async function revocarTidb(usuarioId: string, conservarToken?: string) {
   await preparar()
   if (conservarToken) await conexion().query('DELETE FROM acceso WHERE usuario_id = ? AND token != ?', [usuarioId, conservarToken])
@@ -612,5 +650,11 @@ CREATE TABLE IF NOT EXISTS meta (
   escenario_fecha DATE NOT NULL,
   escenario_texto VARCHAR(180) NOT NULL,
   hora_referencia TIME NOT NULL
+);
+CREATE TABLE IF NOT EXISTS aviso_clave (
+  id VARCHAR(40) PRIMARY KEY,
+  usuario_id VARCHAR(40) NOT NULL,
+  creado DATETIME NOT NULL,
+  atendido TINYINT(1) NOT NULL DEFAULT 0
 );
 `

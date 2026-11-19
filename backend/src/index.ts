@@ -6,7 +6,7 @@ import type { FormatoInforme } from '../../shared/informes.ts'
 import { leerSolicitudInstitucional, redactarInstitucional, TIPOS_INSTITUCIONALES } from '../../shared/institucional.ts'
 import { permisoDeOperacion, puede } from '../../shared/permisos.ts'
 import { relojMexico } from '../../shared/reloj.ts'
-import { cambiarClave, cerrar, entrar, leerDatos, operar, sesionDe } from './almacen.ts'
+import { avisosDeClave, cambiarClave, cerrar, entrar, enviarTemporal, leerDatos, operar, pedirRecuperacion, sesionDe } from './almacen.ts'
 import { prepararBase, usaTidb } from './tidb.ts'
 import { construirControlExcel } from './control-excel.ts'
 import { exportarDocumento, exportarInforme, leerLogo, nombreArchivo, tipoContenido } from './documentos.ts'
@@ -52,6 +52,40 @@ app.post('/api/sesion/entrar', async (req, res) => {
       ok: false,
       message: falta ? 'Faltan los datos de MySQL en el servidor.' : 'No hay conexión con la base de datos.',
     })
+  }
+})
+
+app.post('/api/sesion/olvido', async (req, res) => {
+  try {
+    const correo = typeof req.body?.correo === 'string' ? req.body.correo : ''
+    const resultado = await pedirRecuperacion(correo)
+    res.json(resultado)
+  } catch (error) {
+    console.error(error)
+    const falta = error instanceof Error && error.message.startsWith('Faltan los datos de MySQL')
+    res.status(503).json({
+      ok: false,
+      message: falta ? 'Faltan los datos de MySQL en el servidor.' : 'No hay conexión con la base de datos.',
+    })
+  }
+})
+
+app.get('/api/claves/avisos', async (req, res) => {
+  const sesion = await exigir(req, res, 'usuarios')
+  if (!sesion) return
+  res.json({ ok: true, avisos: await avisosDeClave() })
+})
+
+app.post('/api/claves/enviar', async (req, res) => {
+  const sesion = await exigir(req, res, 'usuarios')
+  if (!sesion) return
+  const usuarioId = typeof req.body?.usuarioId === 'string' ? req.body.usuarioId : ''
+  try {
+    const resultado = await enviarTemporal(usuarioId, sesion.usuario.nombre)
+    res.status(resultado.ok ? 200 : 400).json(resultado)
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'No se pudo enviar la contraseña.'
+    res.status(400).json({ ok: false, message })
   }
 })
 

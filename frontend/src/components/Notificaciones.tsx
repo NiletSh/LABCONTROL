@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Bell } from 'lucide-react'
 import type { DemoData } from '@shared/types'
+import { avisosDeClave } from '../api'
+import type { AvisoClave } from '../api'
 import { fechaHora } from '../format'
 
 interface Aviso {
@@ -12,8 +14,19 @@ interface Aviso {
   to: string
 }
 
-function avisos(data: DemoData, puede: (permiso: string) => boolean) {
+function avisos(data: DemoData, puede: (permiso: string) => boolean, claves: AvisoClave[]) {
   const lista: Aviso[] = []
+  if (puede('usuarios')) {
+    for (const item of claves) {
+      lista.push({
+        id: item.id,
+        titulo: 'Olvidó su contraseña',
+        detalle: `${item.nombre} · ${item.correo}. En Usuarios pulsa Enviar por correo.`,
+        cuando: item.creado ? fechaHora(item.creado) : '',
+        to: '/usuarios',
+      })
+    }
+  }
   const laboratorios = new Map(data.laboratorios.map((lab) => [lab.id, lab.nombre]))
   const materias = new Map(data.materias.map((materia) => [materia.id, materia.nombre]))
 
@@ -79,7 +92,19 @@ function avisos(data: DemoData, puede: (permiso: string) => boolean) {
 
 export function Notificaciones({ data, puede }: { data: DemoData; puede: (permiso: string) => boolean }) {
   const [abierto, setAbierto] = useState(false)
-  const lista = avisos(data, puede)
+  const [claves, setClaves] = useState<AvisoClave[]>([])
+  const lista = avisos(data, puede, claves)
+
+  useEffect(() => {
+    if (!puede('usuarios')) return
+    let vivo = true
+    void avisosDeClave().then((avisosClave) => {
+      if (vivo) setClaves(avisosClave)
+    }).catch(() => {
+      if (vivo) setClaves([])
+    })
+    return () => { vivo = false }
+  }, [puede, data.bitacora])
 
   useEffect(() => {
     if (!abierto) return

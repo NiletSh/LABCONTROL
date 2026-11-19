@@ -106,6 +106,48 @@ export async function operarEnServidor(tipo: string, datos: unknown, ids: string
   return { status: response.status, body }
 }
 
+export async function avisarOlvido(correo: string) {
+  const response = await fetch(rutaApi('/api/sesion/olvido'), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ correo }),
+  })
+  const body = await response.json() as { ok?: boolean; message?: string }
+  return { status: response.status, body }
+}
+
+export interface AvisoClave {
+  id: string
+  usuarioId: string
+  nombre: string
+  correo: string
+  creado: string
+}
+
+export async function avisosDeClave() {
+  const response = await fetch(rutaApi('/api/claves/avisos'), { headers: cabeceras() })
+  const body = await response.json() as { ok?: boolean; avisos?: AvisoClave[]; message?: string }
+  if (!response.ok) throw new Error(body.message ?? 'No se pudieron leer los avisos.')
+  return body.avisos ?? []
+}
+
+export async function enviarClavePorCorreo(usuarioId: string) {
+  const response = await fetch(rutaApi('/api/claves/enviar'), {
+    method: 'POST',
+    headers: cabeceras(),
+    body: JSON.stringify({ usuarioId }),
+  })
+  const body = await response.json() as {
+    ok?: boolean
+    message?: string
+    claveTemporal?: string
+    enviado?: boolean
+    correo?: string
+    nombre?: string
+  }
+  return { status: response.status, body }
+}
+
 export async function cambiarClaveEnServidor(nueva: string, actual: string) {
   const response = await fetch(rutaApi('/api/sesion/clave'), {
     method: 'POST',
