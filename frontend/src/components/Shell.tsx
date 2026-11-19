@@ -32,7 +32,7 @@ interface BeforeInstallPromptEvent extends Event {
 }
 
 export function Shell({ children }: { children: ReactNode }) {
-  const { role, cerrarSesion, apiOnline, toasts, dismissToast, usuarioId, usuarioNombre, data, puede } = useApp()
+  const { role, cerrarSesion, toasts, dismissToast, usuarioId, usuarioNombre, data, puede } = useApp()
   const [open, setOpen] = useState(false)
   const [cuentaAbierta, setCuentaAbierta] = useState(false)
   const [editandoPerfil, setEditandoPerfil] = useState(false)
@@ -96,11 +96,6 @@ export function Shell({ children }: { children: ReactNode }) {
             <LogOut size={16} />
             Cerrar sesión
           </button>
-          <p>La sesión es de esta visita. Para ver el otro rol, cierra sesión y entra con la otra cuenta.</p>
-          <div className={apiOnline ? 'api-state is-on' : 'api-state'}>
-            <span />
-            {apiOnline ? 'API en línea · MySQL' : 'API sin conexión'}
-          </div>
         </div>
       </aside>
       <div className="content">
